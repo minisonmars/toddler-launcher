@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guard_description">Toddler Guard keeps your child inside Toddler Launcher. If an app that you have not allowed opens, or the notification shade is pulled down, it sends them straight back to the toddler home screen. It only looks at which app is on screen. It does not read or store anything you type or see.</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Roof -->
+    <path
+        android:fillColor="#FFD23C"
+        android:pathData="M54,28 L80,50 L74,50 L54,33 L34,50 L28,50 Z" />
+    <!-- House body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,35 L74,52 L74,78 L34,78 L34,52 Z" />
+    <!-- Heart -->
+    <path
+        android:fillColor="#FF5A78"
+        android:pathData="M54,71 C46,65 42,61 42,56.5 C42,53 44.5,51 47.5,51 C50,51 52.5,52.5 54,55 C55.5,52.5 58,51 60.5,51 C63.5,51 66,53 66,56.5 C66,61 62,65 54,71 Z" />
+</vector>

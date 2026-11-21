@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to publish releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Change the first two numbers here to bump the version; the last is the build number
+      APP_VERSION: 0.1.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toddler-launcher-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "ToddlerLauncher-v${APP_VERSION}.apk"
+          gh release create "v${APP_VERSION}" "ToddlerLauncher-v${APP_VERSION}.apk" \
+            --title "Toddler Launcher v${APP_VERSION}" \
+            --notes "Automatic build of commit ${GITHUB_SHA::7}" \
+            --target "$GITHUB_SHA"
