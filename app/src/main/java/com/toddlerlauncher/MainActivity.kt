@@ -134,6 +134,20 @@ class MainActivity : Activity() {
         // Back on the toddler screen, so the parent area is over and the guard is on duty again
         settings.endParentMode()
 
+        // Just chose this as the home app from setup or the parent area: go back there
+        val back = settings.returnTo
+        if (back.isNotEmpty()) {
+            settings.returnTo = ""
+            if (System.currentTimeMillis() < settings.returnUntil && Device.isDefaultHome(this)) {
+                try {
+                    settings.startParentMode()
+                    startActivity(Intent(this, Class.forName(back)))
+                    return
+                } catch (e: Exception) {
+                }
+            }
+        }
+
         if (!settings.setupShown) {
             settings.setupShown = true
             settings.startParentMode()

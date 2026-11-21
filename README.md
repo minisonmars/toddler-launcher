@@ -12,6 +12,9 @@ pattern-protected parent area.
   by default, a yellow ring fills up) and enter the parent code.
   The code starts as **0000**.
 - **Parent area**:
+  - Lock-down checks at the top: a tick or cross for each setup step (home app,
+    Toddler Guard, background use, updates, own code, apps chosen) with a button
+    to fix any that have been switched off.
   - Choose the allowed apps and their order.
   - Layout: columns, rows, icon size, app names on or off, screen direction,
     hide the status and navigation bars, keep the screen on.
@@ -82,7 +85,8 @@ app/src/main/java/com/toddlerlauncher/
   MainActivity.kt       toddler home screen (grid, pages, wallpaper, parent button)
   ParentActivity.kt     parent area
   AppPickerActivity.kt  choose and order the allowed apps
-  SetupActivity.kt      lock-down checklist
+  SetupActivity.kt      first-run setup screen
+  Checklist.kt          lock-down checks shared by setup and the parent area
   GuardService.kt       Toddler Guard accessibility service
   Gate.kt               PIN and pattern prompts, changing them
   PatternView.kt        3 by 3 pattern pad

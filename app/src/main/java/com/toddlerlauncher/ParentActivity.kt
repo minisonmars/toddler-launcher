@@ -46,6 +46,17 @@ class ParentActivity : Activity() {
         rows.title("Parent area")
         rows.button("Back to the toddler screen") { finish() }
 
+        // ---------- Lock-down checks, so anything switched off since setup stands out ----------
+        val missing = Checklist.missing(this, settings)
+        rows.header("Lock-down checks")
+        if (missing.isEmpty()) {
+            rows.note("Everything is set up.")
+        } else {
+            rows.note("Not set up: " + missing.joinToString(", ") + ". Use the red steps below.")
+                .setTextColor(Ui.RED)
+        }
+        Checklist.addSteps(this, rows, settings) { build() }
+
         // ---------- Apps ----------
         rows.header("Apps")
         rows.button("Choose allowed apps (${settings.allowed.size} chosen)") {
@@ -112,13 +123,6 @@ class ParentActivity : Activity() {
 
         // ---------- Protection ----------
         rows.header("Protection")
-        val home = Device.isDefaultHome(this)
-        val guard = Device.isGuardEnabled(this)
-        rows.note(
-            (if (home) "Toddler Launcher is the home app. " else "Toddler Launcher is NOT the home app yet. ") +
-                (if (guard) "Toddler Guard is switched on in Android." else "Toddler Guard is NOT switched on in Android.")
-        )
-        rows.button("Setup and lock-down checklist") { startActivity(Intent(this, SetupActivity::class.java)) }
         rows.switchRow("Use Toddler Guard", settings.guardOn) { on -> settings.guardOn = on; on }
         rows.note("Off = the guard stays installed but lets everything through.")
         if (settings.isPaused()) {
@@ -218,6 +222,7 @@ class ParentActivity : Activity() {
     @Deprecated("Framework callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 7 && !Device.isDefaultHome(this)) settings.returnTo = "" // home app not chosen
         val uri = data?.data
         if (resultCode != RESULT_OK || uri == null) return
         try {

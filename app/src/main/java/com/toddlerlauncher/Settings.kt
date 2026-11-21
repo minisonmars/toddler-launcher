@@ -76,6 +76,13 @@ class Settings(ctx: Context) {
     var pinScreen: Boolean // screen pinning on the toddler home screen
         get() = getB("pinScreen", false)
         set(v) = putB("pinScreen", v)
+    /** A parent screen to reopen after Android jumps to the home screen (when choosing the home app). */
+    var returnTo: String
+        get() = getS("returnTo", "")
+        set(v) = putS("returnTo", v)
+    var returnUntil: Long
+        get() = getL("returnUntil", 0L)
+        set(v) = putL("returnUntil", v)
     var setupShown: Boolean
         get() = getB("setupShown", false)
         set(v) = putB("setupShown", v)
@@ -170,7 +177,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil") continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return")) continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

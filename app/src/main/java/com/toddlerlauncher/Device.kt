@@ -41,12 +41,16 @@ object Device {
     }
 
     /** Asks Android to make this the home app (a pop-up on Android 10+, the settings page before that). */
-    fun askToBeHome(activity: Activity, requestCode: Int) {
+    fun askToBeHome(activity: Activity, settings: Settings) {
+        // Android jumps straight to the new home screen once it's chosen, closing this screen,
+        // so the home screen reopens it (see MainActivity.onResume)
+        settings.returnTo = activity.javaClass.name
+        settings.returnUntil = System.currentTimeMillis() + 3 * 60_000L
         if (Build.VERSION.SDK_INT >= 29) {
             val rm = activity.getSystemService(RoleManager::class.java)
             if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
                 try {
-                    activity.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), requestCode)
+                    activity.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), 7)
                     return
                 } catch (e: Exception) {
                 }
