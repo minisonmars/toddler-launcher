@@ -3,8 +3,12 @@ package com.toddlerlauncher
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.SystemClock
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 
@@ -25,12 +29,15 @@ class GuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         settings = Settings(this)
+        showBlocker(settings.guardOn && settings.blockPullDown && !settings.inParentMode() && !settings.isPaused())
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (!::settings.isInitialized) settings = Settings(this)
-        if (!settings.guardOn || settings.inParentMode() || settings.isPaused()) return
+        val active = settings.guardOn && !settings.inParentMode() && !settings.isPaused()
+        showBlocker(active && settings.blockPullDown)
+        if (!active) return
         val pkg = event.packageName?.toString() ?: return
 
         if (pkg == packageName || settings.isAllowed(pkg) || isKeyboard(pkg) || isPermissionDialog(pkg)) return
@@ -93,6 +100,52 @@ class GuardService : AccessibilityService() {
 
     /** Android's own "Allow this app to use the camera?" style pop-ups, so allowed apps keep working. */
     private fun isPermissionDialog(pkg: String) = pkg.endsWith("permissioncontroller")
+
+    // ---------- Invisible strip over the status bar, so a swipe down there does nothing ----------
+
+    private var blocker: View? = null
+
+    private fun showBlocker(show: Boolean) {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val current = blocker
+        if (show && current == null) {
+            val v = View(this)
+            v.setOnTouchListener { _, _ -> true } // swallow every touch
+            val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+            val barH = if (id > 0) resources.getDimensionPixelSize(id) else 0
+            val height = maxOf(barH, (24 * resources.displayMetrics.density).toInt()) +
+                (8 * resources.displayMetrics.density).toInt()
+            val lp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                height,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSPARENT
+            )
+            lp.gravity = Gravity.TOP
+            if (Build.VERSION.SDK_INT >= 28) {
+                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            try {
+                wm.addView(v, lp)
+                blocker = v
+            } catch (e: Exception) {
+            }
+        } else if (!show && current != null) {
+            try {
+                wm.removeView(current)
+            } catch (e: Exception) {
+            }
+            blocker = null
+        }
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        showBlocker(false)
+        return super.onUnbind(intent)
+    }
 
     override fun onInterrupt() {}
 }

@@ -25,7 +25,10 @@ pattern-protected parent area.
     1 hour, or until switched back on), optional screen pinning.
   - App updates: install the latest version or pick any earlier one.
   - Backup and restore of settings to a file.
-  - Switch back to your normal home app, or uninstall.
+  - Use your normal home screen for a while (15 minutes, 1 hour, or until you
+    open Toddler Launcher from its app icon): protection pauses and Home goes to
+    the home app you pick. Handy for system updates.
+  - Switch back to your normal home app permanently, or uninstall.
 - **Setup checklist** (shown on first start, and from the parent area): ticks
   each lock-down step as it's done.
 
@@ -39,6 +42,9 @@ factory-reset device), so it uses what ordinary Android apps can do:
    comes to the front (Settings, recent apps, the normal home screen, the Play
    Store, the Google app and so on), it sends the child straight back. If the
    notification shade or quick settings are pulled down it closes them.
+   It also puts an invisible strip over the top edge of the screen so a swipe
+   down there does nothing ("Block pulling down" in the parent area). Some
+   phones still let the shade through, in which case it is closed straight away.
    It stands aside while you're in the parent area (for up to 15 minutes at a
    time) and while protection is paused.
 3. **Screen pinning** (optional): locks the toddler screen itself in place.

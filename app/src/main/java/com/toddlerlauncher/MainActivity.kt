@@ -1,6 +1,7 @@
 package com.toddlerlauncher
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
@@ -134,6 +135,19 @@ class MainActivity : Activity() {
         // Back on the toddler screen, so the parent area is over and the guard is on duty again
         settings.endParentMode()
 
+        // Using another home screen for a while: Home goes straight on to it. Opening
+        // Toddler Launcher from its app icon instead ends that and brings the toddler screen back.
+        if (settings.usingOtherHome()) {
+            if (intent?.hasCategory(Intent.CATEGORY_HOME) == true) {
+                if (openOtherHome()) return
+            } else {
+                settings.stopOtherHome()
+                Ui.toast(this, "Back to the toddler screen. Protection is on again.")
+            }
+        } else if (settings.otherHome.isNotEmpty()) {
+            settings.stopOtherHome() // the time ran out
+        }
+
         // Just chose this as the home app from setup or the parent area: go back there
         val back = settings.returnTo
         if (back.isNotEmpty()) {
@@ -168,6 +182,25 @@ class MainActivity : Activity() {
                 startLockTask()
             } catch (e: Exception) {
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    private fun openOtherHome(): Boolean {
+        val cn = ComponentName.unflattenFromString(settings.otherHome) ?: return false
+        return try {
+            startActivity(
+                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(cn)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            true
+        } catch (e: Exception) {
+            settings.stopOtherHome()
+            false
         }
     }
 

@@ -97,6 +97,27 @@ class Settings(ctx: Context) {
         get() = getL("pausedUntil", 0L)
         set(v) = putL("pausedUntil", v)
 
+    /** Another home app to use for a while (its component name), and until when. */
+    var otherHome: String
+        get() = getS("otherHome", "")
+        set(v) = putS("otherHome", v)
+    var otherHomeUntil: Long
+        get() = getL("otherHomeUntil", 0L)
+        set(v) = putL("otherHomeUntil", v)
+
+    fun usingOtherHome() = otherHome.isNotEmpty() && System.currentTimeMillis() < otherHomeUntil
+
+    fun stopOtherHome() {
+        otherHome = ""
+        otherHomeUntil = 0L
+        pausedUntil = 0L
+    }
+
+    /** Try to stop the notification shade being pulled down at all (an invisible strip over the status bar). */
+    var blockPullDown: Boolean
+        get() = getB("blockPullDown", true)
+        set(v) = putB("blockPullDown", v)
+
     fun startParentMode() {
         parentUntil = System.currentTimeMillis() + PARENT_MINUTES * 60_000L
     }
@@ -177,7 +198,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return")) continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k.startsWith("otherHome")) continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

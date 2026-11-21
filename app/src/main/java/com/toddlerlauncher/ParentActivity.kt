@@ -2,6 +2,7 @@ package com.toddlerlauncher
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -130,13 +131,21 @@ class ParentActivity : Activity() {
             else "until " + SimpleDateFormat("HH:mm", Locale.UK).format(Date(settings.pausedUntil))
             rows.note("Protection is paused $until.")
             rows.button("Switch protection back on") {
-                settings.pausedUntil = 0L
+                settings.stopOtherHome()
                 build()
             }
         } else {
             rows.button("Pause protection...") { askPause() }
         }
         rows.note("Pausing lets you use the device normally. The toddler screen shows an orange reminder.")
+        rows.switchRow("Block pulling down notifications and quick settings", settings.blockPullDown) { on ->
+            settings.blockPullDown = on
+            on
+        }
+        rows.note(
+            "Puts an invisible strip over the top edge so a swipe there does nothing. If the shade still " +
+                "comes down (some phones let it), Toddler Guard closes it straight away. Needs Toddler Guard on."
+        )
         rows.switchRow("Pin the toddler screen (screen pinning)", settings.pinScreen) { on ->
             settings.pinScreen = on
             on
@@ -155,6 +164,11 @@ class ParentActivity : Activity() {
 
         // ---------- Device ----------
         rows.header("This device")
+        rows.button("Use my normal home screen for a while") { askOtherHome() }
+        rows.note(
+            "For system updates or using the device yourself. Protection is paused and Home goes to the home " +
+                "screen you pick. To come back early, open Toddler Launcher from its app icon."
+        )
         rows.button("Change the home app (back to your normal home screen)") {
             settings.startParentMode()
             Device.openHomeSettings(this)
@@ -166,6 +180,52 @@ class ParentActivity : Activity() {
         }
 
         scroll.post { scroll.scrollTo(0, y) }
+    }
+
+    private fun askOtherHome() {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        @Suppress("DEPRECATION")
+        val found = packageManager.queryIntentActivities(home, 0)
+            .filter { it.activityInfo.packageName != packageName }
+        if (found.isEmpty()) {
+            Ui.toast(this, "No other home screen app found")
+            return
+        }
+        val names = found.map { it.loadLabel(packageManager).toString() }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Which home screen?")
+            .setItems(names) { _, which ->
+                val ai = found[which].activityInfo
+                val cn = ComponentName(ai.packageName, ai.name)
+                val times = arrayOf("15 minutes", "1 hour", "Until I open Toddler Launcher again")
+                AlertDialog.Builder(this)
+                    .setTitle("For how long?")
+                    .setItems(times) { _, t ->
+                        val now = System.currentTimeMillis()
+                        val until = when (t) {
+                            0 -> now + 15 * 60_000L
+                            1 -> now + 60 * 60_000L
+                            else -> Long.MAX_VALUE
+                        }
+                        settings.otherHome = cn.flattenToString()
+                        settings.otherHomeUntil = until
+                        settings.pausedUntil = until
+                        Device.unpin(this)
+                        try {
+                            startActivity(
+                                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(cn)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (e: Exception) {
+                            settings.stopOtherHome()
+                            Ui.toast(this, "Couldn't open that home screen")
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun askPause() {
