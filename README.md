@@ -11,25 +11,32 @@ pattern-protected parent area.
 - **Parent button**: a gear in one corner. A tap does nothing; hold it (3 seconds
   by default, a yellow ring fills up) and enter the parent code.
   The code starts as **0000**.
-- **Parent area**:
-  - Lock-down checks at the top: a tick or cross for each setup step (home app,
-    Toddler Guard, background use, updates, own code, apps chosen) with a button
-    to fix any that have been switched off.
-  - Choose the allowed apps and their order.
-  - Layout: columns, rows (swapped round automatically when the screen is
-    sideways), icon size, app names on or off, screen direction,
-    hide the status and navigation bars, keep the screen on.
-  - Wallpaper: colour presets or your own photo (optionally darkened).
-  - Parent button corner and hold time.
-  - PIN or pattern, plus a recovery word for a forgotten code.
-  - Protection: Toddler Guard on or off, pause protection (15 minutes,
-    1 hour, or until switched back on), optional screen pinning.
-  - App updates: install the latest version or pick any earlier one.
-  - Backup and restore of settings to a file.
-  - Use your normal home screen for a while (15 minutes, 1 hour, or until you
-    open Toddler Launcher from its app icon): protection pauses and Home goes to
-    the home app you pick. Handy for system updates.
-  - Switch back to your normal home app permanently, or uninstall.
+- **Parent area**: a menu of sections, each opening its own screen.
+  - **Lock-down checks**: a tick or cross for each setup step (home app, Toddler
+    Guard, background use, updates, own code, apps chosen) with a button to fix
+    any that have been switched off. The menu line turns red if anything needs attention.
+  - **Apps and app time limits**: choose and order the allowed apps; a daily limit
+    per app (the app shows faded once its time is used up).
+  - **Screen time and allowed hours**: a daily limit for time in apps, "Give 15
+    more minutes today", a "5 minutes left" warning, and allowed hours (separate
+    weekday and weekend times). Outside them the toddler screen shows "Sleep
+    time"; when the daily time is used it shows "Time's up for today".
+  - **Usage report**: minutes per app for today, yesterday and the day before,
+    plus a 7-day daily average. Only time in toddler mode is counted.
+  - **Look and layout**: columns, rows (swapped automatically when sideways), icon
+    size, app names, wallpaper (colours or your photo), screen direction, hiding
+    the status and navigation bars, keeping the screen on.
+  - **Parent code and button**: PIN or pattern, recovery word, gear corner and
+    hold time, the temporary update button on the toddler screen.
+  - **Protection and volume**: Toddler Guard on or off, pause protection, block the
+    pull-down, media volume cap, optional screen pinning.
+  - **Wi-Fi, mobile data and Bluetooth**: shows whether each is on and opens
+    Android's own switches (apps can't switch them directly since Android 10).
+  - **Updates and backup**: install the latest or any earlier version; save or
+    restore settings to a file.
+  - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
+    or until you open Toddler Launcher from its icon), change the home app,
+    uninstall. As the home app, Toddler Launcher starts by itself after a restart.
 - **Setup checklist** (shown on first start, and from the parent area): ticks
   each lock-down step as it's done.
 
@@ -90,11 +97,12 @@ a GitHub Release `v0.1.<run number>` with the APK. A fixed debug keystore
 ```
 app/src/main/java/com/toddlerlauncher/
   MainActivity.kt       toddler home screen (grid, pages, wallpaper, parent button)
-  ParentActivity.kt     parent area
+  ParentActivity.kt     parent area menu and its sections
   AppPickerActivity.kt  choose and order the allowed apps
-  SetupActivity.kt      first-run setup screen
+  SetupActivity.kt      lock-down checks screen (also shown on first start)
   Checklist.kt          lock-down checks shared by setup and the parent area
-  GuardService.kt       Toddler Guard accessibility service
+  Usage.kt              time per app per day, and the screen-time rules
+  GuardService.kt       Toddler Guard: blocks other apps, counts and limits screen time, volume cap
   Gate.kt               PIN and pattern prompts, changing them
   PatternView.kt        3 by 3 pattern pad
   Settings.kt           saved options, PIN/pattern hashes, backup JSON

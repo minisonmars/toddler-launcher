@@ -27,6 +27,57 @@ class Settings(ctx: Context) {
 
     fun isAllowed(pkg: String) = allowed.contains(pkg)
 
+    // ---------- Screen time ----------
+    var dailyLimitMin: Int // 0 = no limit
+        get() = getI("dailyLimitMin", 0)
+        set(v) = putI("dailyLimitMin", v)
+
+    /** Extra minutes given today by a parent (added to the daily and per-app limits). */
+    fun bonusToday(): Int = if (getS("bonusDate", "") == java.time.LocalDate.now().toString()) getI("bonusMin", 0) else 0
+
+    fun addBonus(min: Int) {
+        val total = bonusToday() + min
+        p.edit().putString("bonusDate", java.time.LocalDate.now().toString()).putInt("bonusMin", total).apply()
+    }
+
+    /** Per-app daily limits, saved as "package=minutes,package=minutes". */
+    private fun appLimits(): Map<String, Int> =
+        getS("appLimits", "").split(',').mapNotNull {
+            val parts = it.split('=')
+            if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: 0) else null
+        }.toMap()
+
+    fun appLimitMin(pkg: String): Int = appLimits()[pkg] ?: 0
+
+    fun setAppLimit(pkg: String, min: Int) {
+        val m = appLimits().toMutableMap()
+        if (min <= 0) m.remove(pkg) else m[pkg] = min
+        putS("appLimits", m.entries.joinToString(",") { "${it.key}=${it.value}" })
+    }
+
+    var hoursOn: Boolean
+        get() = getB("hoursOn", false)
+        set(v) = putB("hoursOn", v)
+    var weekdayStart: Int // minutes after midnight
+        get() = getI("weekdayStart", 7 * 60)
+        set(v) = putI("weekdayStart", v)
+    var weekdayEnd: Int
+        get() = getI("weekdayEnd", 19 * 60)
+        set(v) = putI("weekdayEnd", v)
+    var weekendStart: Int
+        get() = getI("weekendStart", 7 * 60)
+        set(v) = putI("weekendStart", v)
+    var weekendEnd: Int
+        get() = getI("weekendEnd", 19 * 60 + 30)
+        set(v) = putI("weekendEnd", v)
+    var warnings: Boolean // "5 minutes left" pop-up
+        get() = getB("warnings", true)
+        set(v) = putB("warnings", v)
+
+    var volumeCap: Int // highest media volume in %, 0 = no cap
+        get() = getI("volumeCap", 0)
+        set(v) = putI("volumeCap", v)
+
     // ---------- Home screen layout ----------
     var columns: Int
         get() = getI("columns", 3)
@@ -268,6 +319,15 @@ class Settings(ctx: Context) {
         )
         val HOLD_TIMES = listOf("1" to "1 second", "2" to "2 seconds", "3" to "3 seconds", "5" to "5 seconds")
         val GRID_SIZES = (1..6).map { it.toString() to it.toString() }
+        val DAILY_LIMITS = listOf(
+            "0" to "No limit", "15" to "15 minutes", "30" to "30 minutes", "45" to "45 minutes",
+            "60" to "1 hour", "90" to "1 hour 30 minutes", "120" to "2 hours", "180" to "3 hours"
+        )
+        val APP_LIMITS = listOf(
+            "0" to "No limit", "5" to "5 min", "10" to "10 min", "15" to "15 min", "20" to "20 min",
+            "30" to "30 min", "45" to "45 min", "60" to "1 hour", "90" to "1 h 30", "120" to "2 hours"
+        )
+        val VOLUME_CAPS = listOf("0" to "No cap") + (3..9).map { (it * 10).toString() to "${it * 10}%" }
         val LOCK_TYPES = listOf("pin" to "PIN code", "pattern" to "Pattern")
     }
 }

@@ -12,7 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import kotlin.math.min
 
-enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE }
+enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS }
 
 /**
  * A round button with an icon drawn in code, so every icon has the same size,
@@ -134,6 +134,40 @@ open class RoundIconButton(context: Context, icon: Icon, fill: Int) : View(conte
                 path.lineTo(0.67f, 0.45f)
                 canvas.drawPath(path, paint)
                 canvas.drawLine(0.28f, 0.76f, 0.72f, 0.76f, paint)
+            }
+
+            Icon.MOON -> {
+                fillStyle()
+                path.reset()
+                path.addCircle(0.47f, 0.5f, 0.26f, Path.Direction.CW)
+                val bite = Path().apply { addCircle(0.60f, 0.42f, 0.22f, Path.Direction.CW) }
+                path.op(bite, Path.Op.DIFFERENCE)
+                canvas.drawPath(path, paint)
+                canvas.drawCircle(0.70f, 0.70f, 0.035f, paint)
+                canvas.drawCircle(0.78f, 0.30f, 0.025f, paint)
+            }
+
+            Icon.HOURGLASS -> {
+                strokeStyle(0.07f)
+                canvas.drawLine(0.30f, 0.22f, 0.70f, 0.22f, paint)
+                canvas.drawLine(0.30f, 0.78f, 0.70f, 0.78f, paint)
+                path.reset()
+                path.moveTo(0.35f, 0.24f)
+                path.lineTo(0.65f, 0.24f)
+                path.lineTo(0.50f, 0.50f)
+                path.lineTo(0.65f, 0.76f)
+                path.lineTo(0.35f, 0.76f)
+                path.lineTo(0.50f, 0.50f)
+                path.close()
+                paint.strokeWidth = 0.05f
+                canvas.drawPath(path, paint)
+                fillStyle()
+                path.reset()
+                path.moveTo(0.40f, 0.74f)
+                path.lineTo(0.60f, 0.74f)
+                path.lineTo(0.50f, 0.60f)
+                path.close()
+                canvas.drawPath(path, paint)
             }
 
             Icon.PAUSE -> {

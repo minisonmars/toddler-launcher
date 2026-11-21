@@ -132,6 +132,33 @@ class Rows(private val activity: Activity, val col: LinearLayout) {
         return b
     }
 
+    /** A big tappable line in a menu: a title and a smaller line underneath (red when it needs attention). */
+    fun menuItem(title: String, subtitle: String, warn: Boolean = false, onClick: () -> Unit) {
+        val item = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(16), dp(4), dp(16))
+            isClickable = true
+            isFocusable = true
+            val ta = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+            background = ta.getDrawable(0)
+            ta.recycle()
+            setOnClickListener { onClick() }
+        }
+        item.addView(TextView(activity).apply {
+            text = title
+            textSize = 19f
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        item.addView(TextView(activity).apply {
+            text = subtitle
+            textSize = 14f
+            setTextColor(if (warn) Ui.RED else Ui.GREY)
+        })
+        col.addView(item)
+        col.addView(View(activity).apply { setBackgroundColor(Color.argb(40, 128, 128, 128)) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+    }
+
     /** A setup step: tick or cross, title, explanation and a button. Returns a function that refreshes it. */
     fun step(title: String, explain: String, buttonLabel: String, isDone: () -> Boolean, onClick: () -> Unit): () -> Unit {
         val mark = RoundIconButton(activity, Icon.CROSS, Ui.RED).apply { isClickable = false; isFocusable = false }

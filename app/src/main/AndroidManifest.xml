@@ -7,6 +7,11 @@
     <!-- Lets the setup screen ask Android not to put Toddler Guard to sleep -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Only to show whether Wi-Fi, mobile data and Bluetooth are on, in the parent area -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
     <!-- Lets the launcher see every app that has an icon (Android 11+ hides them otherwise) -->

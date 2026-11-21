@@ -26,7 +26,7 @@ class SetupActivity : Activity() {
         }
         val rows = Rows(this, col)
 
-        rows.title("Set up Toddler Launcher")
+        rows.title("Lock-down checks")
         rows.note(
             "Work down the list. A green tick means a step is done. You can come back here any time from " +
                 "the parent area. The parent code starts as ${Settings.DEFAULT_PIN}."

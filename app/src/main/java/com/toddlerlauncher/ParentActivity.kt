@@ -2,14 +2,21 @@ package com.toddlerlauncher
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.TimePickerDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.TextView
 import java.io.File
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -39,33 +46,225 @@ class ParentActivity : Activity() {
         build()
     }
 
+    private val section get() = intent.getStringExtra(SECTION) ?: ""
+
+    private fun open(section: String) {
+        startActivity(Intent(this, ParentActivity::class.java).putExtra(SECTION, section))
+    }
+
     private fun build() {
         val y = scroll.scrollY
         col.removeAllViews()
         val rows = Rows(this, col)
-
-        rows.title("Parent area")
-        rows.button("Back to the toddler screen") { finish() }
-
-        // ---------- Lock-down checks, so anything switched off since setup stands out ----------
-        val missing = Checklist.missing(this, settings)
-        rows.header("Lock-down checks")
-        if (missing.isEmpty()) {
-            rows.note("Everything is set up.")
-        } else {
-            rows.note("Not set up: " + missing.joinToString(", ") + ". Use the red steps below.")
-                .setTextColor(Ui.RED)
+        when (section) {
+            "apps" -> buildApps(rows)
+            "time" -> buildTime(rows)
+            "report" -> buildReport(rows)
+            "look" -> buildLook(rows)
+            "code" -> buildCode(rows)
+            "protect" -> buildProtect(rows)
+            "connect" -> buildConnect(rows)
+            "updates" -> buildUpdates(rows)
+            "device" -> buildDevice(rows)
+            else -> buildMenu(rows)
         }
-        Checklist.addSteps(this, rows, settings) { build() }
+        scroll.post { scroll.scrollTo(0, y) }
+    }
 
-        // ---------- Apps ----------
-        rows.header("Apps")
+    private fun sectionTitle(rows: Rows, text: String) {
+        rows.title(text)
+        rows.button("Back") { finish() }
+    }
+
+    // ---------- The main menu ----------
+
+    private fun buildMenu(rows: Rows) {
+        rows.title("Parent area")
+        rows.button("Back to the toddler screen") { closeParentArea() }
+
+        val missing = Checklist.missing(this, settings)
+        rows.menuItem(
+            "Lock-down checks",
+            if (missing.isEmpty()) "Everything is set up" else "Needs attention: " + missing.joinToString(", "),
+            warn = missing.isNotEmpty()
+        ) { startActivity(Intent(this, SetupActivity::class.java)) }
+
+        rows.menuItem("Apps and app time limits", "${settings.allowed.size} apps allowed") { open("apps") }
+
+        val u = Usage(this)
+        val limit = if (settings.dailyLimitMin > 0) " of " + Usage.format(Rules.dailyAllowanceSec(settings)) else ""
+        rows.menuItem(
+            "Screen time and allowed hours",
+            "Today: " + Usage.format(u.appSeconds(LocalDate.now())) + limit +
+                if (settings.hoursOn) ". Allowed hours on" else ""
+        ) { open("time") }
+        rows.menuItem("Usage report", "The last 3 days and a 7-day average") { open("report") }
+        rows.menuItem("Look and layout", "Grid, icons, wallpaper, screen direction") { open("look") }
+        rows.menuItem(
+            "Parent code and button",
+            if (settings.isDefaultPin() && !settings.hasPattern()) "Still using the default PIN ${Settings.DEFAULT_PIN}"
+            else "PIN, pattern, recovery word, gear button",
+            warn = settings.isDefaultPin() && !settings.hasPattern()
+        ) { open("code") }
+        rows.menuItem(
+            "Protection and volume",
+            if (settings.isPaused()) "Protection is PAUSED" else "Toddler Guard, pull-down block, volume cap, pinning",
+            warn = settings.isPaused()
+        ) { open("protect") }
+        rows.menuItem("Wi-Fi, mobile data and Bluetooth", "Quick switches for you") { open("connect") }
+        rows.menuItem("Updates and backup", "You have version ${Updater.installedVersion(this)}") { open("updates") }
+        rows.menuItem("This device", "Use your normal home screen, uninstall") { open("device") }
+    }
+
+    private fun closeParentArea() {
+        // Back to the toddler screen, closing every parent screen on the way
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        finish()
+    }
+
+    // ---------- Apps ----------
+
+    private fun buildApps(rows: Rows) {
+        sectionTitle(rows, "Apps")
         rows.button("Choose allowed apps (${settings.allowed.size} chosen)") {
             startActivity(Intent(this, AppPickerActivity::class.java))
         }
+        rows.header("Daily time limit for each app")
+        rows.note("Once an app's time is used up, it shows faded on the toddler screen until tomorrow.")
+        val u = Usage(this)
+        val list = Apps.allowed(this, settings)
+        if (list.isEmpty()) rows.note("Choose some apps first.")
+        for (app in list) {
+            val used = Usage.format(u.seconds(LocalDate.now(), app.pkg))
+            rows.choiceRow("${app.label} (today: $used)", Settings.APP_LIMITS, settings.appLimitMin(app.pkg).toString()) {
+                settings.setAppLimit(app.pkg, it.toInt())
+            }
+        }
+    }
 
-        // ---------- Layout ----------
-        rows.header("Home screen layout")
+    // ---------- Screen time ----------
+
+    private fun buildTime(rows: Rows) {
+        sectionTitle(rows, "Screen time")
+        val u = Usage(this)
+        if (!Device.isGuardEnabled(this)) {
+            rows.note("Toddler Guard is off in Android, so screen time can't be counted or limited. " +
+                "Switch it on from Lock-down checks.").setTextColor(Ui.RED)
+        }
+        rows.header("Daily limit")
+        rows.note("Counts time spent inside the apps, not on the toddler home screen.")
+        rows.choiceRow("Total time in apps per day", Settings.DAILY_LIMITS, settings.dailyLimitMin.toString()) {
+            settings.dailyLimitMin = it.toInt()
+            col.post { build() }
+        }
+        val used = u.appSeconds(LocalDate.now())
+        rows.note(
+            "Used today: " + Usage.format(used) +
+                (if (settings.dailyLimitMin > 0) ", allowed " + Usage.format(Rules.dailyAllowanceSec(settings)) else "") +
+                (if (settings.bonusToday() > 0) " (including ${settings.bonusToday()} min extra)" else "")
+        )
+        rows.button("Give 15 more minutes today") {
+            settings.addBonus(15)
+            Ui.toast(this, "15 extra minutes added for today")
+            build()
+        }
+        rows.note("Extra time is added to the daily limit and to each app's limit, for today only.")
+        rows.switchRow("\"5 minutes left\" warning", settings.warnings) { on -> settings.warnings = on; on }
+
+        rows.header("Allowed hours")
+        rows.note("Outside these times the toddler screen shows \"Sleep time\" and no apps open.")
+        rows.switchRow("Only allow use between set times", settings.hoursOn) { on ->
+            settings.hoursOn = on
+            col.post { build() }
+            on
+        }
+        if (settings.hoursOn) {
+            timeButton(rows, "Monday to Friday from", settings.weekdayStart) { settings.weekdayStart = it }
+            timeButton(rows, "Monday to Friday until", settings.weekdayEnd) { settings.weekdayEnd = it }
+            timeButton(rows, "Saturday and Sunday from", settings.weekendStart) { settings.weekendStart = it }
+            timeButton(rows, "Saturday and Sunday until", settings.weekendEnd) { settings.weekendEnd = it }
+        }
+    }
+
+    private fun timeButton(rows: Rows, label: String, minutes: Int, onSet: (Int) -> Unit) {
+        rows.button("$label  ${Rules.hhmm(minutes)}") {
+            TimePickerDialog(this, { _, h, m ->
+                onSet(h * 60 + m)
+                build()
+            }, minutes / 60, minutes % 60, true).show()
+        }
+    }
+
+    // ---------- Usage report ----------
+
+    private fun buildReport(rows: Rows) {
+        sectionTitle(rows, "Usage report")
+        rows.note("Time on screen in toddler mode. Time while you're in the parent area or protection is paused isn't counted.")
+        val u = Usage(this)
+        val today = LocalDate.now()
+        val days = (0..2).map { today.minusDays(it.toLong()) }
+        val week = (0..6).map { today.minusDays(it.toLong()) }
+        val dayName = DateTimeFormatter.ofPattern("EEE", Locale.UK)
+
+        val pkgs = week.flatMap { u.packages(it) }.toSet()
+        val names = HashMap<String, String>()
+        for (pkg in pkgs) {
+            names[pkg] = if (pkg == packageName) "Home screen" else try {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+            } catch (e: Exception) {
+                pkg
+            }
+        }
+
+        reportRow(listOf("App", "Today", "Yest.", dayName.format(days[2]), "7-day avg"), bold = true)
+        val appPkgs = pkgs.filter { it != packageName }
+            .sortedByDescending { p -> week.sumOf { u.seconds(it, p) } }
+        for (pkg in appPkgs) {
+            reportRow(listOf(names[pkg] ?: pkg) + days.map { short(u.seconds(it, pkg)) } +
+                short(week.sumOf { u.seconds(it, pkg) } / 7))
+        }
+        reportRow(listOf("All apps") + days.map { short(u.appSeconds(it)) } + short(week.sumOf { u.appSeconds(it) } / 7), bold = true)
+        if (pkgs.contains(packageName)) {
+            reportRow(listOf("Home screen") + days.map { short(u.seconds(it, packageName)) } +
+                short(week.sumOf { u.seconds(it, packageName) } / 7))
+        }
+        if (pkgs.isEmpty()) rows.note("Nothing recorded yet. Counting needs Toddler Guard switched on.")
+        rows.note("The 7-day average is the total for the last 7 days (including today) divided by 7.")
+        rows.button("Clear the usage history") {
+            AlertDialog.Builder(this).setTitle("Clear usage history?")
+                .setMessage("This also resets today's screen time.")
+                .setPositiveButton("Clear") { _, _ -> u.clearAll(); build() }
+                .setNegativeButton("Cancel", null).show()
+        }
+    }
+
+    private fun short(secs: Long): String {
+        val m = (secs + 30) / 60
+        return if (m < 60) "${m}m" else String.format(Locale.UK, "%dh%02d", m / 60, m % 60)
+    }
+
+    private fun reportRow(cells: List<String>, bold: Boolean = false) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, dp(6))
+        }
+        cells.forEachIndexed { i, text ->
+            row.addView(TextView(this).apply {
+                this.text = text
+                textSize = 14f
+                if (bold) typeface = Typeface.DEFAULT_BOLD
+                gravity = if (i == 0) Gravity.START else Gravity.END
+                maxLines = 2
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, if (i == 0) 2.2f else 1f))
+        }
+        col.addView(row)
+    }
+
+    // ---------- Look and layout ----------
+
+    private fun buildLook(rows: Rows) {
+        sectionTitle(rows, "Look and layout")
+        rows.header("Grid")
         rows.choiceRow("Columns (across)", Settings.GRID_SIZES, settings.columns.toString()) {
             settings.columns = it.toInt()
         }
@@ -76,14 +275,10 @@ class ParentActivity : Activity() {
             on
         }
         rows.note("Set the grid for the device held upright. Turned sideways, 5 rows of 3 become 3 rows of 5.")
+        rows.header("Icons")
         rows.choiceRow("Icon size", Settings.ICON_SIZES, settings.iconSize) { settings.iconSize = it }
         rows.switchRow("Show app names", settings.showNames) { on -> settings.showNames = on; on }
-        rows.choiceRow("Screen direction", Settings.ORIENTATIONS, settings.orientation) { settings.orientation = it }
-        rows.switchRow("Hide the status and navigation bars", settings.hideBars) { on -> settings.hideBars = on; on }
-        rows.note("Makes the notification shade harder to reach by accident.")
-        rows.switchRow("Keep the screen on", settings.keepScreenOn) { on -> settings.keepScreenOn = on; on }
 
-        // ---------- Wallpaper ----------
         rows.header("Wallpaper")
         val walls = Settings.WALLPAPERS.map { it.first to it.second.first } + ("photo" to "My photo")
         rows.choiceRow("Background", walls, settings.wallpaper) {
@@ -94,20 +289,17 @@ class ParentActivity : Activity() {
         rows.switchRow("Darken the photo a little", settings.dimPhoto) { on -> settings.dimPhoto = on; on }
         rows.note("Helps the app names stand out on a bright photo.")
 
-        // ---------- Parent button ----------
-        rows.header("Parent button")
-        rows.choiceRow("Corner", Settings.CORNERS, settings.gearCorner) { settings.gearCorner = it }
-        rows.choiceRow("Hold for", Settings.HOLD_TIMES, settings.holdSeconds.toString()) {
-            settings.holdSeconds = it.toInt()
-        }
-        rows.switchRow("Show the update button on the toddler screen", settings.showUpdateOnHome) { on ->
-            settings.showUpdateOnHome = on
-            on
-        }
-        rows.note("Handy while the app is being built. Switch it off once things settle down.")
+        rows.header("Screen")
+        rows.choiceRow("Screen direction", Settings.ORIENTATIONS, settings.orientation) { settings.orientation = it }
+        rows.switchRow("Hide the status and navigation bars", settings.hideBars) { on -> settings.hideBars = on; on }
+        rows.switchRow("Keep the screen on", settings.keepScreenOn) { on -> settings.keepScreenOn = on; on }
+    }
 
-        // ---------- Unlock ----------
-        rows.header("Parent code")
+    // ---------- Parent code and button ----------
+
+    private fun buildCode(rows: Rows) {
+        sectionTitle(rows, "Parent code and button")
+        rows.header("Code")
         rows.note(
             when {
                 settings.isDefaultPin() -> "Still using the default PIN ${Settings.DEFAULT_PIN}. Please change it."
@@ -127,14 +319,29 @@ class ParentActivity : Activity() {
         }
         rows.note("The recovery word resets a forgotten PIN or pattern (\"Forgot?\" on the PIN box).")
 
-        // ---------- Protection ----------
-        rows.header("Protection")
+        rows.header("Parent button")
+        rows.choiceRow("Corner", Settings.CORNERS, settings.gearCorner) { settings.gearCorner = it }
+        rows.choiceRow("Hold for", Settings.HOLD_TIMES, settings.holdSeconds.toString()) {
+            settings.holdSeconds = it.toInt()
+        }
+        rows.switchRow("Show the update button on the toddler screen", settings.showUpdateOnHome) { on ->
+            settings.showUpdateOnHome = on
+            on
+        }
+        rows.note("Handy while the app is being built. Switch it off once things settle down.")
+    }
+
+    // ---------- Protection ----------
+
+    private fun buildProtect(rows: Rows) {
+        sectionTitle(rows, "Protection and volume")
+        rows.header("Toddler Guard")
         rows.switchRow("Use Toddler Guard", settings.guardOn) { on -> settings.guardOn = on; on }
-        rows.note("Off = the guard stays installed but lets everything through.")
+        rows.note("Off = the guard stays installed but lets everything through, and screen-time limits stop.")
         if (settings.isPaused()) {
             val until = if (settings.pausedUntil == Long.MAX_VALUE) "until you switch it back on"
             else "until " + SimpleDateFormat("HH:mm", Locale.UK).format(Date(settings.pausedUntil))
-            rows.note("Protection is paused $until.")
+            rows.note("Protection is paused $until.").setTextColor(Ui.RED)
             rows.button("Switch protection back on") {
                 settings.stopOtherHome()
                 build()
@@ -149,26 +356,78 @@ class ParentActivity : Activity() {
         }
         rows.note(
             "Puts an invisible strip over the top edge so a swipe there does nothing. If the shade still " +
-                "comes down (some phones let it), Toddler Guard closes it straight away. Needs Toddler Guard on."
+                "comes down (some phones let it), Toddler Guard closes it straight away."
         )
-        rows.switchRow("Pin the toddler screen (screen pinning)", settings.pinScreen) { on ->
+
+        rows.header("Volume")
+        rows.choiceRow("Highest media volume", Settings.VOLUME_CAPS, settings.volumeCap.toString()) {
+            settings.volumeCap = it.toInt()
+        }
+        rows.note("If the volume is turned up past this, it's turned straight back down. Needs Toddler Guard.")
+
+        rows.header("Screen pinning")
+        rows.switchRow("Pin the toddler screen", settings.pinScreen) { on ->
             settings.pinScreen = on
             on
         }
+        rows.note("Optional extra. See Lock-down checks for how it works.")
+    }
 
-        // ---------- Updates ----------
+    // ---------- Connections ----------
+
+    private fun buildConnect(rows: Rows) {
+        sectionTitle(rows, "Wi-Fi, mobile data and Bluetooth")
+        rows.note(
+            "Android doesn't let apps switch these on or off themselves (since Android 10), so these buttons " +
+                "open Android's own switches. Your child can't change them: Settings and quick settings are " +
+                "blocked by Toddler Guard."
+        )
+        rows.header("Wi-Fi: " + onOff(Device.isWifiOn(this)))
+        rows.button("Wi-Fi switch") {
+            settings.startParentMode()
+            Device.openWifi(this)
+        }
+        rows.header("Mobile data: " + onOff(Device.isMobileDataInUse(this), "in use", "not in use"))
+        rows.button("Internet switches (Wi-Fi and mobile data)") {
+            settings.startParentMode()
+            Device.openInternet(this)
+        }
+        rows.header("Bluetooth: " + onOff(Device.isBluetoothOn(this)))
+        rows.button("Bluetooth settings") {
+            settings.startParentMode()
+            Device.openBluetooth(this)
+        }
+        rows.header("Aeroplane mode: " + onOff(Device.isAirplaneOn(this)))
+        rows.button("Aeroplane mode settings") {
+            settings.startParentMode()
+            Device.openAirplane(this)
+        }
+        rows.note("Aeroplane mode turns everything off at once, which is a quick way to keep the device offline.")
+    }
+
+    private fun onOff(on: Boolean?, yes: String = "on", no: String = "off") = when (on) {
+        true -> yes
+        false -> no
+        null -> "unknown"
+    }
+
+    // ---------- Updates and backup ----------
+
+    private fun buildUpdates(rows: Rows) {
+        sectionTitle(rows, "Updates and backup")
         rows.header("App updates")
         rows.note("You have version ${Updater.installedVersion(this)}.")
         rows.button("Check for updates or choose a version") { Updater.showDialog(this, settings) }
-
-        // ---------- Backup ----------
         rows.header("Backup")
         rows.button("Save settings to a file") { saveBackup() }
         rows.button("Restore settings from a file") { openBackup() }
-        rows.note("Includes allowed apps, layout and your PIN or pattern. A wallpaper photo isn't included.")
+        rows.note("Includes allowed apps, limits, layout and your PIN or pattern. A wallpaper photo and the usage history aren't included.")
+    }
 
-        // ---------- Device ----------
-        rows.header("This device")
+    // ---------- This device ----------
+
+    private fun buildDevice(rows: Rows) {
+        sectionTitle(rows, "This device")
         rows.button("Use my normal home screen for a while") { askOtherHome() }
         rows.note(
             "For system updates or using the device yourself. Protection is paused and Home goes to the home " +
@@ -178,13 +437,12 @@ class ParentActivity : Activity() {
             settings.startParentMode()
             Device.openHomeSettings(this)
         }
-        rows.note("Pick your normal home app here when you want the device back. Pick Toddler Launcher to return.")
+        rows.note("Pick your normal home app here when you want the device back for good. Pick Toddler Launcher to return.")
+        rows.note("After a restart Toddler Launcher opens by itself, as it's the home app, and Toddler Guard comes back on.")
         rows.button("Uninstall Toddler Launcher") {
             settings.startParentMode()
             Device.open(this, Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
         }
-
-        scroll.post { scroll.scrollTo(0, y) }
     }
 
     private fun askOtherHome() {
@@ -319,5 +577,6 @@ class ParentActivity : Activity() {
         private const val REQ_PHOTO = 31
         private const val REQ_SAVE = 32
         private const val REQ_OPEN = 33
+        const val SECTION = "section"
     }
 }

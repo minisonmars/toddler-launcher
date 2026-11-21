@@ -38,6 +38,18 @@ class MainActivity : Activity() {
     private lateinit var update: RoundIconButton
     private lateinit var banner: TextView
     private lateinit var empty: TextView
+    private lateinit var lockView: LinearLayout
+    private lateinit var lockIcon: RoundIconButton
+    private lateinit var lockText: TextView
+    private lateinit var usage: Usage
+    private var ruleState = ""
+    private val refresher = android.os.Handler(android.os.Looper.getMainLooper())
+    private val refreshTick = object : Runnable {
+        override fun run() {
+            if (ruleSignature() != ruleState) showPage(page)
+            refresher.postDelayed(this, 20_000)
+        }
+    }
 
     private var apps = listOf<AppEntry>()
     private var page = 0
@@ -52,6 +64,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = Settings(this)
+        usage = Usage(this)
 
         root = FrameLayout(this)
         wallImage = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
@@ -75,6 +88,26 @@ class MainActivity : Activity() {
             setPadding(dp(32), 0, dp(32), 0)
         }
         root.addView(empty, FrameLayout.LayoutParams(-1, -1))
+
+        // "Time's up" / "Sleep time" screen, over the apps but under the parent button
+        lockIcon = RoundIconButton(this, Icon.MOON, Ui.SHADE).apply { isClickable = false; isFocusable = false }
+        lockText = TextView(this).apply {
+            textSize = 30f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setShadowLayer(6f, 0f, 2f, Color.BLACK)
+            setPadding(0, dp(16), 0, 0)
+        }
+        lockView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(200, 10, 10, 40))
+            isClickable = true // swallows taps so the apps underneath can't be opened
+            addView(lockIcon, LinearLayout.LayoutParams(dp(160), dp(160)))
+            addView(lockText)
+            visibility = View.GONE
+        }
+        root.addView(lockView, FrameLayout.LayoutParams(-1, -1))
 
         // Page arrows and dots along the bottom
         prev = RoundIconButton(this, Icon.ARROW_LEFT, Ui.SHADE).apply {
@@ -326,9 +359,41 @@ class MainActivity : Activity() {
     private fun perPage() = gridRows() * gridCols()
     private fun pageCount() = ((apps.size + perPage() - 1) / perPage()).coerceAtLeast(1)
 
+    /** Screen-time rules only apply while protection is on. */
+    private fun rulesApply() = settings.guardOn && !settings.isPaused()
+
+    private fun currentBlock(): Rules.Block? = if (rulesApply()) Rules.block(settings, usage) else null
+
+    private fun appBlocked(pkg: String) = rulesApply() && Rules.appBlocked(settings, usage, pkg)
+
+    private fun ruleSignature(): String =
+        currentBlock().toString() + "|" + apps.filter { appBlocked(it.pkg) }.joinToString(",") { it.pkg }
+
+    override fun onPause() {
+        super.onPause()
+        refresher.removeCallbacks(refreshTick)
+    }
+
     private fun showPage(p: Int) {
         page = p.coerceIn(0, pageCount() - 1)
         grid.removeAllViews()
+        ruleState = ruleSignature()
+        refresher.removeCallbacks(refreshTick)
+        refresher.postDelayed(refreshTick, 20_000)
+
+        when (currentBlock()) {
+            Rules.Block.HOURS -> {
+                lockView.visibility = View.VISIBLE
+                lockIcon.icon = Icon.MOON
+                lockText.text = "Sleep time"
+            }
+            Rules.Block.DAILY -> {
+                lockView.visibility = View.VISIBLE
+                lockIcon.icon = Icon.HOURGLASS
+                lockText.text = "Time's up for today"
+            }
+            null -> lockView.visibility = View.GONE
+        }
 
         if (apps.isEmpty()) {
             empty.visibility = View.VISIBLE
@@ -352,6 +417,7 @@ class MainActivity : Activity() {
                 val i = start + r * cols + c
                 val cell: View = if (i < apps.size) {
                     AppTile(this, apps[i], settings.showNames, sizeFactor).apply {
+                        if (appBlocked(app.pkg)) alpha = 0.3f // its time is used up for today
                         setOnClickListener { open(app) }
                     }
                 } else {
@@ -377,6 +443,10 @@ class MainActivity : Activity() {
         val now = SystemClock.elapsedRealtime()
         if (now - lastLaunchAt < 1500) return // little fingers often tap twice
         lastLaunchAt = now
+        if (currentBlock() != null || appBlocked(app.pkg)) {
+            showPage(page)
+            return
+        }
         Device.unpin(this) // screen pinning would stop the app opening
         if (!Apps.launch(this, app.pkg)) Ui.toast(this, "${app.label} couldn't be opened")
     }

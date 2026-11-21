@@ -3,7 +3,12 @@ package com.toddlerlauncher
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.database.ContentObserver
 import android.graphics.PixelFormat
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.os.Build
 import android.os.SystemClock
 import android.view.Gravity
@@ -11,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 
 /**
  * Toddler Guard. Android tells it whenever a new window comes to the front.
@@ -27,20 +33,113 @@ class GuardService : AccessibilityService() {
     private var keyboardsCheckedAt = 0L
     private var lastActionAt = 0L
 
+    private lateinit var usage: Usage
+    private val handler = Handler(Looper.getMainLooper())
+    private var foreground: String? = null
+    private var lastTickAt = 0L
+    private val warned = HashSet<String>()
+
+    private fun isActive() =
+        settings.guardOn && !settings.inParentMode() && !settings.isPaused() && !settings.isInstalling()
+
     override fun onServiceConnected() {
         settings = Settings(this)
-        showBlocker(settings.guardOn && settings.blockPullDown && !settings.inParentMode() && !settings.isPaused())
+        usage = Usage(this)
+        showBlocker(isActive() && settings.blockPullDown)
+        lastTickAt = SystemClock.elapsedRealtime()
+        handler.postDelayed(tick, TICK_MS)
+        // Volume changes: pull the media volume back down to the cap straight away
+        contentResolver.registerContentObserver(
+            android.provider.Settings.System.CONTENT_URI, true, volumeObserver
+        )
+    }
+
+    private val volumeObserver = object : ContentObserver(handler) {
+        override fun onChange(selfChange: Boolean) {
+            enforceVolume()
+        }
+    }
+
+    /** Every few seconds: count time in the app on screen and apply the screen-time rules. */
+    private val tick = object : Runnable {
+        override fun run() {
+            try {
+                tickOnce()
+            } catch (e: Exception) {
+            }
+            handler.postDelayed(this, TICK_MS)
+        }
+    }
+
+    private fun tickOnce() {
+        val now = SystemClock.elapsedRealtime()
+        val elapsed = ((now - lastTickAt) / 1000).coerceIn(0, TICK_MS / 1000 + 5)
+        lastTickAt = now
+        val active = isActive()
+        showBlocker(active && settings.blockPullDown)
+        if (!active) return
+        enforceVolume()
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val fg = foreground ?: return
+        if (!pm.isInteractive) return
+        if (fg != packageName && !settings.isAllowed(fg)) return
+        usage.add(fg, elapsed)
+        if (fg == packageName) return
+
+        if (Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, fg)) {
+            goHome()
+            return
+        }
+        if (settings.warnings) {
+            val left = minOf(Rules.dailyLeftSec(settings, usage), Rules.appLeftSec(settings, usage, fg))
+            val key = java.time.LocalDate.now().toString() + "|" + (if (left == Rules.dailyLeftSec(settings, usage)) "all" else fg) +
+                "|" + (settings.dailyLimitMin + settings.bonusToday() + settings.appLimitMin(fg))
+            if (left in 1L..300L && warned.add(key)) {
+                Toast.makeText(this, "5 minutes left", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun enforceVolume() {
+        if (!::settings.isInitialized) return
+        val cap = settings.volumeCap
+        if (cap <= 0 || !isActive()) return
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val allowed = (max * cap + 50) / 100
+            if (am.getStreamVolume(AudioManager.STREAM_MUSIC) > allowed) {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, allowed, 0)
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        try {
+            contentResolver.unregisterContentObserver(volumeObserver)
+        } catch (e: Exception) {
+        }
+        super.onDestroy()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (!::settings.isInitialized) settings = Settings(this)
-        val active = settings.guardOn && !settings.inParentMode() && !settings.isPaused() && !settings.isInstalling()
+        if (!::usage.isInitialized) usage = Usage(this)
+        val active = isActive()
         showBlocker(active && settings.blockPullDown)
-        if (!active) return
         val pkg = event.packageName?.toString() ?: return
+        if (pkg != "com.android.systemui" && !isKeyboard(pkg) && !isPermissionDialog(pkg)) foreground = pkg
+        if (!active) return
 
-        if (pkg == packageName || settings.isAllowed(pkg) || isKeyboard(pkg) || isPermissionDialog(pkg)) return
+        if (pkg == packageName || isKeyboard(pkg) || isPermissionDialog(pkg)) return
+        if (settings.isAllowed(pkg)) {
+            // Allowed, unless its time is used up or it's outside the allowed hours
+            if (Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, pkg)) goHome()
+            return
+        }
 
         if (pkg == "com.android.systemui") {
             // Notification shade, quick settings, volume panel, lock screen... only the shade needs closing
@@ -148,4 +247,8 @@ class GuardService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    companion object {
+        private const val TICK_MS = 10_000L
+    }
 }
