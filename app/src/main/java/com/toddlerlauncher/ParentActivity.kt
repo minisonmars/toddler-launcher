@@ -71,6 +71,11 @@ class ParentActivity : Activity() {
         }
         rows.choiceRow("Rows (down)", Settings.GRID_SIZES, settings.rows.toString()) { settings.rows = it.toInt() }
         rows.note("If there are more apps than fit, they go onto extra pages with arrows.")
+        rows.switchRow("Swap rows and columns when sideways", settings.swapWhenSideways) { on ->
+            settings.swapWhenSideways = on
+            on
+        }
+        rows.note("Set the grid for the device held upright. Turned sideways, 5 rows of 3 become 3 rows of 5.")
         rows.choiceRow("Icon size", Settings.ICON_SIZES, settings.iconSize) { settings.iconSize = it }
         rows.switchRow("Show app names", settings.showNames) { on -> settings.showNames = on; on }
         rows.choiceRow("Screen direction", Settings.ORIENTATIONS, settings.orientation) { settings.orientation = it }

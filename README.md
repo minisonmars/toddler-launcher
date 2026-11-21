@@ -16,7 +16,8 @@ pattern-protected parent area.
     Toddler Guard, background use, updates, own code, apps chosen) with a button
     to fix any that have been switched off.
   - Choose the allowed apps and their order.
-  - Layout: columns, rows, icon size, app names on or off, screen direction,
+  - Layout: columns, rows (swapped round automatically when the screen is
+    sideways), icon size, app names on or off, screen direction,
     hide the status and navigation bars, keep the screen on.
   - Wallpaper: colour presets or your own photo (optionally darkened).
   - Parent button corner and hold time.

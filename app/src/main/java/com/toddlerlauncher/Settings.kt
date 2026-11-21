@@ -34,6 +34,9 @@ class Settings(ctx: Context) {
     var rows: Int
         get() = getI("rows", 4)
         set(v) = putI("rows", v)
+    var swapWhenSideways: Boolean // landscape: rows become columns and columns become rows
+        get() = getB("swapWhenSideways", true)
+        set(v) = putB("swapWhenSideways", v)
     var showNames: Boolean
         get() = getB("showNames", true)
         set(v) = putB("showNames", v)

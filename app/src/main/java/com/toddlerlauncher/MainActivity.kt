@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -293,7 +294,36 @@ class MainActivity : Activity() {
 
     // ---------- The grid of apps ----------
 
-    private fun perPage() = (settings.rows * settings.columns).coerceAtLeast(1)
+    private fun isLandscape() = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    /** The grid as set by the parent, swapped round when the screen is sideways (if that's switched on). */
+    private fun gridCols() = (if (isLandscape() && settings.swapWhenSideways) settings.rows else settings.columns).coerceAtLeast(1)
+    private fun gridRows() = (if (isLandscape() && settings.swapWhenSideways) settings.columns else settings.rows).coerceAtLeast(1)
+
+    /** Sideways there is little height, so the corner buttons sit beside the grid instead of above and below it. */
+    private fun placeGrid() {
+        (grid.layoutParams as FrameLayout.LayoutParams).apply {
+            if (isLandscape()) {
+                topMargin = dp(12)
+                bottomMargin = if (pageCount() > 1) dp(84) else dp(12)
+                leftMargin = dp(80)
+                rightMargin = dp(80)
+            } else {
+                topMargin = dp(80)
+                bottomMargin = dp(88)
+                leftMargin = dp(8)
+                rightMargin = dp(8)
+            }
+        }
+        grid.requestLayout()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        showPage(page)
+    }
+
+    private fun perPage() = gridRows() * gridCols()
     private fun pageCount() = ((apps.size + perPage() - 1) / perPage()).coerceAtLeast(1)
 
     private fun showPage(p: Int) {
@@ -313,8 +343,8 @@ class MainActivity : Activity() {
             "medium" -> 0.72f
             else -> 0.9f
         }
-        val cols = settings.columns.coerceAtLeast(1)
-        val rows = settings.rows.coerceAtLeast(1)
+        val cols = gridCols()
+        val rows = gridRows()
         val start = page * perPage()
         for (r in 0 until rows) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -334,6 +364,7 @@ class MainActivity : Activity() {
             grid.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
 
+        placeGrid()
         val many = pageCount() > 1
         bottomBar.visibility = if (many) View.VISIBLE else View.INVISIBLE
         prev.visibility = if (page > 0) View.VISIBLE else View.INVISIBLE
