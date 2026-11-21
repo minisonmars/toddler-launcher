@@ -5,6 +5,12 @@
       "package": "com.toddlercamera",
       "repo": "minisonmars/toddler-camera",
       "description": "A big-button camera and gallery, with its own PIN-protected parent settings."
+    },
+    {
+      "name": "Toddler Doodle",
+      "package": "com.toddlerdoodle",
+      "repo": "minisonmars/toddler-doodle",
+      "description": "Draw with 10 colours, 3 brush sizes and an eraser. Saves doodles to its own gallery, with a PIN-protected parent area."
     }
   ]
 }

@@ -20,6 +20,10 @@ object Catalog {
         Entry(
             "Toddler Camera", "com.toddlercamera", "minisonmars/toddler-camera",
             "A big-button camera and gallery, with its own PIN-protected parent settings."
+        ),
+        Entry(
+            "Toddler Doodle", "com.toddlerdoodle", "minisonmars/toddler-doodle",
+            "Draw with 10 colours, 3 brush sizes and an eraser. Saves doodles to its own gallery, with a PIN-protected parent area."
         )
     )
 
