@@ -35,7 +35,7 @@ class GuardService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (!::settings.isInitialized) settings = Settings(this)
-        val active = settings.guardOn && !settings.inParentMode() && !settings.isPaused()
+        val active = settings.guardOn && !settings.inParentMode() && !settings.isPaused() && !settings.isInstalling()
         showBlocker(active && settings.blockPullDown)
         if (!active) return
         val pkg = event.packageName?.toString() ?: return

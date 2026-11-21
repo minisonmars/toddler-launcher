@@ -133,7 +133,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // Back on the toddler screen, so the parent area is over and the guard is on duty again
-        settings.endParentMode()
+        // (unless an update is installing: Android's install and Play Protect screens come and go)
+        if (!settings.isInstalling()) settings.endParentMode()
 
         // Using another home screen for a while: Home goes straight on to it. Opening
         // Toddler Launcher from its app icon instead ends that and brings the toddler screen back.

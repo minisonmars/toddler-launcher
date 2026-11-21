@@ -118,6 +118,14 @@ class Settings(ctx: Context) {
         get() = getB("blockPullDown", true)
         set(v) = putB("blockPullDown", v)
 
+    /** While an app update is being installed, the guard stands aside so Android's installer and
+     *  Play Protect pop-ups aren't closed (they can appear one after another). */
+    var installingUntil: Long
+        get() = getL("installingUntil", 0L)
+        set(v) = putL("installingUntil", v)
+
+    fun isInstalling() = System.currentTimeMillis() < installingUntil
+
     fun startParentMode() {
         parentUntil = System.currentTimeMillis() + PARENT_MINUTES * 60_000L
     }
@@ -198,7 +206,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k.startsWith("otherHome")) continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "installingUntil" || k.startsWith("otherHome")) continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

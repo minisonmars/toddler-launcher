@@ -22,6 +22,7 @@ class InstallReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_SUCCESS ->
                 Toast.makeText(context, "Updated. Press Home to go back to Toddler Launcher.", Toast.LENGTH_LONG).show()
             else -> {
+                Settings(context).installingUntil = 0L // protection straight back on
                 val why = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "unknown reason"
                 Toast.makeText(context, "Update failed: $why", Toast.LENGTH_LONG).show()
             }

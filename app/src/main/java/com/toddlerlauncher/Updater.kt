@@ -249,6 +249,7 @@ object Updater {
         }
         Device.unpin(activity) // screen pinning would block Android's install screen
         settings.startParentMode()
+        settings.installingUntil = System.currentTimeMillis() + 5 * 60_000L
         val status = TextView(activity).apply {
             text = "Downloading ${r.version}..."
             textSize = 16f
