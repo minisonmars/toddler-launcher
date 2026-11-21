@@ -66,6 +66,7 @@ class ParentActivity : Activity() {
             "connect" -> buildConnect(rows)
             "updates" -> buildUpdates(rows)
             "device" -> buildDevice(rows)
+            "recommended" -> buildRecommended(rows)
             else -> buildMenu(rows)
         }
         scroll.post { scroll.scrollTo(0, y) }
@@ -90,6 +91,7 @@ class ParentActivity : Activity() {
         ) { startActivity(Intent(this, SetupActivity::class.java)) }
 
         rows.menuItem("Apps and app time limits", "${settings.allowed.size} apps allowed") { open("apps") }
+        rows.menuItem("Recommended apps", "Install other toddler apps made for this launcher") { open("recommended") }
 
         val u = Usage(this)
         val limit = if (settings.dailyLimitMin > 0) " of " + Usage.format(Rules.dailyAllowanceSec(settings)) else ""
@@ -422,6 +424,86 @@ class ParentActivity : Activity() {
         rows.button("Save settings to a file") { saveBackup() }
         rows.button("Restore settings from a file") { openBackup() }
         rows.note("Includes allowed apps, limits, layout and your PIN or pattern. A wallpaper photo and the usage history aren't included.")
+    }
+
+    // ---------- Recommended apps ----------
+
+    private var catalog: List<Catalog.Entry>? = null
+    private var latest = HashMap<String, Updater.Release?>()
+    private var catalogLoading = false
+    private var catalogError = ""
+
+    private fun loadCatalog() {
+        if (catalogLoading) return
+        catalogLoading = true
+        Thread {
+            val list = Catalog.fetch()
+            val found = HashMap<String, Updater.Release?>()
+            var error = ""
+            for (e in list) {
+                try {
+                    found[e.pkg] = Updater.fetchReleases(e.repo).firstOrNull()
+                } catch (ex: Exception) {
+                    error = ex.message ?: "couldn't reach GitHub"
+                }
+            }
+            runOnUiThread {
+                catalogLoading = false
+                catalog = list
+                latest = found
+                catalogError = error
+                if (!isFinishing) build()
+            }
+        }.start()
+    }
+
+    private fun buildRecommended(rows: Rows) {
+        sectionTitle(rows, "Recommended apps")
+        rows.note("Other toddler apps made to go with Toddler Launcher. Install one, then switch on " +
+            "\"Show on the toddler screen\". Each app has its own parent settings: open it from here to set it up.")
+        val list = catalog
+        if (list == null) {
+            rows.note("Checking GitHub...")
+            loadCatalog()
+            return
+        }
+        if (catalogError.isNotEmpty()) rows.note("Couldn't check every app: $catalogError").setTextColor(Ui.RED)
+        for (e in list) {
+            rows.header(e.name)
+            if (e.description.isNotEmpty()) rows.note(e.description)
+            val have = Catalog.installedVersion(this, e.pkg)
+            val newest = latest[e.pkg]
+            val status = when {
+                have == null && newest == null -> "Not installed. No download found yet."
+                have == null -> "Not installed. Latest version ${newest!!.version}."
+                newest == null -> "Installed (version $have)."
+                Updater.compare(newest.version, have) > 0 -> "Installed version $have. Version ${newest.version} is available."
+                else -> "Installed version $have, the latest."
+            }
+            rows.note(status)
+            if (newest != null && (have == null || Updater.compare(newest.version, have) > 0)) {
+                rows.button(if (have == null) "Install ${e.name}" else "Update to ${newest.version}") {
+                    Updater.start(this, settings, newest, e.name)
+                }
+            }
+            if (have != null) {
+                rows.switchRow("Show on the toddler screen", settings.isAllowed(e.pkg)) { on ->
+                    val now = settings.allowed.toMutableList()
+                    if (on && !now.contains(e.pkg)) now.add(e.pkg)
+                    if (!on) now.remove(e.pkg)
+                    settings.allowed = now
+                    on
+                }
+                rows.button("Open ${e.name}") {
+                    settings.startParentMode()
+                    if (!Apps.launch(this, e.pkg)) Ui.toast(this, "Couldn't open ${e.name}")
+                }
+            }
+        }
+        rows.button("Check again") {
+            catalog = null
+            build()
+        }
     }
 
     // ---------- This device ----------

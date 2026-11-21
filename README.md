@@ -23,6 +23,10 @@ pattern-protected parent area.
     time"; when the daily time is used it shows "Time's up for today".
   - **Usage report**: minutes per app for today, yesterday and the day before,
     plus a 7-day daily average. Only time in toddler mode is counted.
+  - **Recommended apps**: other toddler apps made for this launcher (listed in
+    `catalog.json` in this repo, so new ones appear without a launcher update).
+    Install or update them from their GitHub releases, show them on the toddler
+    screen, and open them to set up their own parent settings.
   - **Look and layout**: columns, rows (swapped automatically when sideways), icon
     size, app names, wallpaper (colours or your photo), screen direction, hiding
     the status and navigation bars, keeping the screen on.
@@ -109,9 +113,11 @@ app/src/main/java/com/toddlerlauncher/
   Device.kt             checks and shortcuts to Android settings
   Apps.kt               app list, launching, app tiles
   Updater.kt            GitHub releases list, download and install
+  Catalog.kt            recommended apps list (catalog.json)
   InstallReceiver.kt    install result
   Icons.kt              icons drawn in code, hold-to-open button, page dots
   Ui.kt                 colours and row builders for settings screens
+catalog.json            the recommended apps: name, package, GitHub repo, description
 app/src/main/res/       launcher icon, accessibility service config, strings
 ```
 

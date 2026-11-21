@@ -19,7 +19,7 @@ import java.util.Locale
 /** Lists the app's GitHub releases, downloads one and hands it to Android to install. */
 object Updater {
 
-    private const val RELEASES = "https://api.github.com/repos/minisonmars/toddler-launcher/releases?per_page=40"
+    const val OWN_REPO = "minisonmars/toddler-launcher"
 
     class Release(val version: String, val date: String, val apkUrl: String, val sizeBytes: Long)
 
@@ -31,8 +31,8 @@ object Updater {
         }
 
     /** Blocking, so call it off the main thread. Newest first, only releases that have an APK. */
-    fun fetchReleases(): List<Release> {
-        val conn = URL(RELEASES).openConnection() as HttpURLConnection
+    fun fetchReleases(repo: String = OWN_REPO): List<Release> {
+        val conn = URL("https://api.github.com/repos/$repo/releases?per_page=40").openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 10_000
             conn.readTimeout = 15_000
@@ -115,7 +115,7 @@ object Updater {
     }
 
     /** Gives the APK to Android's installer. Android shows its own "Update?" screen. */
-    fun install(ctx: Context, apk: File) {
+    fun install(ctx: Context, apk: File, label: String = "") {
         val installer = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         if (Build.VERSION.SDK_INT >= 31) {
@@ -129,7 +129,7 @@ object Updater {
                     session.fsync(out)
                 }
             }
-            val intent = Intent(ctx, InstallReceiver::class.java)
+            val intent = Intent(ctx, InstallReceiver::class.java).putExtra(InstallReceiver.LABEL, label)
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or
                 (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
             val pending = PendingIntent.getBroadcast(ctx, id, intent, flags)
@@ -231,7 +231,8 @@ object Updater {
             .show()
     }
 
-    private fun start(activity: Activity, settings: Settings, r: Release) {
+    /** Downloads [r] and installs it. [label] is set when it's another app (one of the recommended apps). */
+    fun start(activity: Activity, settings: Settings, r: Release, label: String = "") {
         if (!Device.canInstallUpdates(activity)) {
             AlertDialog.Builder(activity)
                 .setTitle("Allow updates")
@@ -256,20 +257,22 @@ object Updater {
             val pad = Ui.dp(activity, 24)
             setPadding(pad, pad, pad, pad)
         }
-        val dialog = AlertDialog.Builder(activity).setTitle("Updating").setView(status).setCancelable(false).show()
-        val file = File(activity.cacheDir, "update.apk")
+        val dialog = AlertDialog.Builder(activity).setTitle(if (label.isEmpty()) "Updating" else "Installing $label")
+            .setView(status).setCancelable(false).show()
+        val file = File(activity.cacheDir, if (label.isEmpty()) "update.apk" else "app.apk")
         Thread {
             try {
                 download(r.apkUrl, file) { percent ->
                     activity.runOnUiThread { status.text = "Downloading ${r.version}... $percent%" }
                 }
                 activity.runOnUiThread { status.text = "Installing... confirm on the screen that appears" }
-                install(activity, file)
+                install(activity, file, label)
                 activity.runOnUiThread { status.postDelayed({ if (dialog.isShowing) dialog.dismiss() }, 4000) }
             } catch (e: Exception) {
                 activity.runOnUiThread {
                     dialog.dismiss()
-                    Ui.toast(activity, "Update failed: ${e.message}")
+                    settings.installingUntil = 0L
+                    Ui.toast(activity, "Download failed: ${e.message}")
                 }
             }
         }.start()

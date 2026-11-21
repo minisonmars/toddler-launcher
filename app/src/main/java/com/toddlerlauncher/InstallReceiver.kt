@@ -19,12 +19,19 @@ class InstallReceiver : BroadcastReceiver() {
                     context.startActivity(confirm)
                 }
             }
-            PackageInstaller.STATUS_SUCCESS ->
-                Toast.makeText(context, "Updated. Press Home to go back to Toddler Launcher.", Toast.LENGTH_LONG).show()
+            PackageInstaller.STATUS_SUCCESS -> {
+                val label = intent.getStringExtra(LABEL) ?: ""
+                if (label.isEmpty()) {
+                    Toast.makeText(context, "Updated. Press Home to go back to Toddler Launcher.", Toast.LENGTH_LONG).show()
+                } else {
+                    Settings(context).installingUntil = 0L
+                    Toast.makeText(context, "$label is installed", Toast.LENGTH_LONG).show()
+                }
+            }
             else -> {
                 Settings(context).installingUntil = 0L // protection straight back on
                 val why = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "unknown reason"
-                Toast.makeText(context, "Update failed: $why", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Install failed: $why", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -33,4 +40,8 @@ class InstallReceiver : BroadcastReceiver() {
     private fun confirmIntent(intent: Intent): Intent? =
         if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
         else intent.getParcelableExtra(Intent.EXTRA_INTENT)
+
+    companion object {
+        const val LABEL = "label"
+    }
 }

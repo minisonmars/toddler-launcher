@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "Toddler Camera",
+      "package": "com.toddlercamera",
+      "repo": "minisonmars/toddler-camera",
+      "description": "A big-button camera and gallery, with its own PIN-protected parent settings."
+    }
+  ]
+}
