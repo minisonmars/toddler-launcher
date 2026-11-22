@@ -78,6 +78,42 @@ class Settings(ctx: Context) {
         get() = getI("volumeCap", 0)
         set(v) = putI("volumeCap", v)
 
+    // ---------- Remote access (same Wi-Fi) ----------
+    var remoteOn: Boolean
+        get() = getB("remoteOn", false)
+        set(v) = putB("remoteOn", v)
+
+    /** Locked from the remote page: the toddler screen shows "Break time" until unlocked. */
+    var lockedNow: Boolean
+        get() = getB("lockedNow", false)
+        set(v) = putB("lockedNow", v)
+
+    /** When the remote page last talked to this device, to show the small remote icon. */
+    var remoteSeenAt: Long
+        get() = getL("remoteSeenAt", 0L)
+        set(v) = putL("remoteSeenAt", v)
+
+    fun remoteConnected() = System.currentTimeMillis() - remoteSeenAt < 90_000L
+
+    /** Used by the remote page, which changes settings by name. */
+    fun putRaw(key: String, value: Any) {
+        val e = p.edit()
+        when (value) {
+            is Boolean -> e.putBoolean(key, value)
+            is Int -> e.putInt(key, value)
+            is String -> e.putString(key, value)
+        }
+        e.apply()
+    }
+
+    fun getRaw(key: String): Any? = p.all[key]
+
+    fun registerListener(l: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        p.registerOnSharedPreferenceChangeListener(l)
+
+    fun unregisterListener(l: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        p.unregisterOnSharedPreferenceChangeListener(l)
+
     // ---------- Home screen layout ----------
     var columns: Int
         get() = getI("columns", 3)
@@ -260,7 +296,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "installingUntil" || k.startsWith("otherHome")) continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome")) continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

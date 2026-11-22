@@ -10,6 +10,8 @@
     <!-- Only to show whether Wi-Fi, mobile data and Bluetooth are on, in the parent area -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Lets the remote page add Wi-Fi networks for the device to join (network suggestions) -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

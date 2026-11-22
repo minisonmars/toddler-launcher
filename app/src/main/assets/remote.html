@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toddler Launcher remote</title>
+<style>
+  :root { --green:#34b37a; --red:#e13c3c; --orange:#ff961e; --bg:#f4f6f5; --card:#fff; --text:#1d2420; --grey:#6b746f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#121614; --card:#1d2320; --text:#e8ece9; --grey:#9aa49e; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); font-size:16px; }
+  header { background:var(--green); color:#fff; padding:16px; position:sticky; top:0; z-index:2; }
+  header h1 { margin:0; font-size:20px; }
+  header small { opacity:.9; }
+  main { padding:12px; max-width:640px; margin:0 auto; }
+  .card { background:var(--card); border-radius:14px; padding:14px 16px; margin:12px 0; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h2 { font-size:17px; margin:0 0 10px; color:var(--green); }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid rgba(128,128,128,.15); }
+  .row:last-child { border-bottom:none; }
+  .row label { flex:1; }
+  .note { color:var(--grey); font-size:14px; margin:6px 0; }
+  .warn { color:var(--red); font-weight:600; }
+  button { font-size:16px; border:none; border-radius:10px; padding:11px 14px; background:var(--green); color:#fff; margin:4px 6px 4px 0; }
+  button.secondary { background:rgba(128,128,128,.2); color:var(--text); }
+  button.danger { background:var(--red); }
+  select, input[type=text], input[type=password], input[type=time] { font-size:16px; padding:8px; border-radius:8px; border:1px solid rgba(128,128,128,.4); background:var(--card); color:var(--text); max-width:55vw; }
+  input[type=checkbox] { width:26px; height:26px; accent-color:var(--green); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td, th { padding:6px 4px; text-align:right; border-bottom:1px solid rgba(128,128,128,.15); }
+  td:first-child, th:first-child { text-align:left; }
+  tr.total td { font-weight:700; }
+  #login { max-width:360px; margin:40px auto; }
+  #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#333; color:#fff; padding:10px 16px; border-radius:10px; display:none; max-width:90vw; z-index:5; }
+  .big { font-size:22px; font-weight:700; }
+</style>
+</head>
+<body>
+<header><h1>Toddler Launcher</h1><small id="sub">Remote parent access</small></header>
+<main>
+  <div id="login" class="card">
+    <h2>Parent PIN</h2>
+    <p class="note">Enter the same PIN you use on the toddler device.</p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" style="width:100%;max-width:none">
+    <p><button onclick="login()">Log in</button></p>
+    <p id="loginMsg" class="warn"></p>
+  </div>
+  <div id="app" style="display:none"></div>
+</main>
+<div id="toast"></div>
+<script>
+var token = sessionStorage.getItem('tl-token') || '';
+var st = null;
+
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = 'none'; }, 3500);
+}
+
+function api(path, body) {
+  return fetch('/api/' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Token': token },
+    body: JSON.stringify(body || {})
+  }).then(function (r) {
+    return r.json().then(function (j) {
+      if (r.status === 401 && path !== 'login') { showLogin('Please log in again.'); throw new Error('login'); }
+      if (!r.ok) throw new Error(j.error || 'Something went wrong');
+      return j;
+    });
+  });
+}
+
+function showLogin(msg) {
+  token = ''; sessionStorage.removeItem('tl-token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login').style.display = 'block';
+  document.getElementById('loginMsg').textContent = msg || '';
+}
+
+function login() {
+  var pin = document.getElementById('pin').value;
+  api('login', { pin: pin }).then(function (j) {
+    token = j.token; sessionStorage.setItem('tl-token', token);
+    document.getElementById('pin').value = '';
+    load();
+  }).catch(function (e) { document.getElementById('loginMsg').textContent = e.message; });
+}
+document.getElementById('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+
+function load() {
+  api('state').then(function (j) {
+    st = j;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    render();
+  }).catch(function (e) { if (e.message !== 'login') toast(e.message); });
+}
+
+function el(tag, attrs, children) {
+  var e = document.createElement(tag);
+  for (var k in (attrs || {})) {
+    if (k === 'text') e.textContent = attrs[k];
+    else if (k.slice(0, 2) === 'on') e[k] = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(function (c) { if (c) e.appendChild(c); });
+  return e;
+}
+
+function card(title, children) { return el('div', { 'class': 'card' }, [el('h2', { text: title })].concat(children)); }
+
+function hhmm(m) { m = parseInt(m, 10); var h = Math.floor(m / 60), mm = m % 60; return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm; }
+
+function settingRow(s) {
+  var input;
+  if (s.type === 'bool') {
+    input = el('input', { type: 'checkbox' });
+    input.checked = s.value === 'true';
+    input.onchange = function () { set(s.key, input.checked); };
+  } else if (s.type === 'time') {
+    input = el('input', { type: 'time', value: hhmm(s.value) });
+    input.onchange = function () { var p = input.value.split(':'); set(s.key, String(parseInt(p[0], 10) * 60 + parseInt(p[1], 10))); };
+  } else {
+    input = el('select');
+    s.options.forEach(function (o) {
+      var opt = el('option', { value: o[0], text: o[1] });
+      if (o[0] === s.value) opt.selected = true;
+      input.appendChild(opt);
+    });
+    input.onchange = function () { set(s.key, input.value); };
+  }
+  return el('div', { 'class': 'row' }, [el('label', { text: s.label }), input]);
+}
+
+function set(key, value) {
+  api('set', { key: key, value: value }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); });
+}
+
+function act(path, body, msg) {
+  api(path, body).then(function (j) { toast(j.message || msg || 'Done'); setTimeout(load, 400); })
+    .catch(function (e) { toast(e.message); });
+}
+
+function render() {
+  var app = document.getElementById('app');
+  app.innerHTML = '';
+  document.getElementById('sub').textContent = st.device + ' · version ' + st.version;
+
+  // Status and quick actions
+  var status = [];
+  status.push(el('div', { 'class': 'big', text: 'Today: ' + st.usedToday + (st.allowance !== 'No limit' ? ' of ' + st.allowance : '') }));
+  if (st.bonus > 0) status.push(el('p', { 'class': 'note', text: 'Including ' + st.bonus + ' extra minutes today.' }));
+  if (st.block) status.push(el('p', { 'class': 'warn', text: 'Toddler screen: ' + st.block }));
+  if (st.paused) status.push(el('p', { 'class': 'warn', text: st.pausedText }));
+  if (!st.guardEnabled) status.push(el('p', { 'class': 'warn', text: 'Toddler Guard is off in Android, so limits and blocking are not working.' }));
+  if (st.defaultPin) status.push(el('p', { 'class': 'warn', text: 'Still using the default PIN 0000. Change it below.' }));
+  status.push(el('div', {}, [
+    el('button', { text: '+15 minutes', onclick: function () { act('bonus', { min: 15 }, '15 minutes added'); } }),
+    el('button', { text: '+30 minutes', onclick: function () { act('bonus', { min: 30 }, '30 minutes added'); } }),
+    st.lockedNow
+      ? el('button', { 'class': 'secondary', text: 'End break time', onclick: function () { act('lock', { on: false }, 'Unlocked'); } })
+      : el('button', { 'class': 'danger', text: 'Break time now', onclick: function () { act('lock', { on: true }, 'Locked'); } })
+  ]));
+  status.push(el('div', {}, st.paused
+    ? [el('button', { text: 'Switch protection back on', onclick: function () { act('pause', { min: 0 }, 'Protection on'); } })]
+    : [el('button', { 'class': 'secondary', text: 'Pause 15 min', onclick: function () { act('pause', { min: 15 }, 'Paused'); } }),
+       el('button', { 'class': 'secondary', text: 'Pause 1 hour', onclick: function () { act('pause', { min: 60 }, 'Paused'); } })]));
+  status.push(el('button', { 'class': 'secondary', text: 'Refresh', onclick: load }));
+  app.appendChild(card('Now', status));
+
+  // Settings, grouped
+  var groups = {};
+  var order = [];
+  st.settings.forEach(function (s) {
+    if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
+    if (s.group === 'Allowed hours' && s.key !== 'hoursOn') {
+      var on = st.settings.filter(function (x) { return x.key === 'hoursOn'; })[0];
+      if (on && on.value !== 'true') return;
+    }
+    groups[s.group].push(settingRow(s));
+  });
+  order.forEach(function (g) {
+    var extra = [];
+    if (g === 'Allowed hours') extra.push(el('p', { 'class': 'note', text: 'Switch it on, then press Refresh to set the times.' }));
+    app.appendChild(card(g, groups[g].concat(extra)));
+  });
+
+  // Apps
+  var appRows = [el('p', { 'class': 'note', text: 'Tick the apps your child can use, and set a daily limit for each.' })];
+  st.apps.forEach(function (a) {
+    var box = el('input', { type: 'checkbox' });
+    box.checked = a.allowed;
+    box.onchange = function () { act('app', { pkg: a.pkg, allowed: box.checked }, box.checked ? 'Allowed' : 'Removed'); };
+    var sel = el('select');
+    st.appLimitOptions.forEach(function (o) {
+      var opt = el('option', { value: o[0], text: o[1] });
+      if (parseInt(o[0], 10) === a.limit) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = function () { act('app', { pkg: a.pkg, limit: parseInt(sel.value, 10) }, 'Saved'); };
+    var label = el('label', {}, [el('div', { text: a.label }), el('div', { 'class': 'note', text: 'Today: ' + a.today })]);
+    var right = el('div', {}, a.allowed ? [sel, box] : [box]);
+    appRows.push(el('div', { 'class': 'row' }, [label, right]));
+  });
+  app.appendChild(card('Apps', appRows));
+
+  // Report
+  var table = el('table');
+  table.appendChild(el('tr', {}, [el('th', { text: 'App' })].concat(st.reportDays.map(function (d) { return el('th', { text: d }); })).concat([el('th', { text: '7-day avg' })])));
+  st.report.forEach(function (r) {
+    var tr = el('tr', r.total ? { 'class': 'total' } : {}, [el('td', { text: r.label })].concat(r.days.map(function (d) { return el('td', { text: d }); })).concat([el('td', { text: r.avg })]));
+    table.appendChild(tr);
+  });
+  app.appendChild(card('Usage report', [table, el('p', { 'class': 'note', text: 'Time in apps in toddler mode. The average is the last 7 days divided by 7.' })]));
+
+  // Wi-Fi
+  var wifi = [];
+  wifi.push(el('p', { 'class': 'note', text: 'Wi-Fi is ' + (st.wifiOn ? 'on' : 'off') + ' on the toddler device.' }));
+  if (!st.wifiSupported) {
+    wifi.push(el('p', { 'class': 'note', text: 'Adding networks needs Android 10 or newer on the toddler device.' }));
+  } else {
+    wifi.push(el('p', { 'class': 'note', text: 'Add a network and the toddler device joins it by itself whenever it is in range.' }));
+    var ssid = el('input', { type: 'text', placeholder: 'Network name' });
+    var pass = el('input', { type: 'password', placeholder: 'Password' });
+    wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), ssid]));
+    wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Password' }), pass]));
+    wifi.push(el('button', { text: 'Add network', onclick: function () { act('wifi/add', { ssid: ssid.value, password: pass.value }); } }));
+    st.wifiNetworks.forEach(function (n) {
+      wifi.push(el('div', { 'class': 'row' }, [el('label', { text: n }),
+        el('button', { 'class': 'secondary', text: 'Remove', onclick: function () { act('wifi/remove', { ssid: n }); } })]));
+    });
+  }
+  app.appendChild(card('Wi-Fi networks', wifi));
+
+  // PIN
+  var cur = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'Current PIN' });
+  var nw = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'New PIN' });
+  app.appendChild(card('Parent PIN', [
+    el('div', { 'class': 'row' }, [el('label', { text: 'Current' }), cur]),
+    el('div', { 'class': 'row' }, [el('label', { text: 'New (4 to 8 digits)' }), nw]),
+    el('button', { text: 'Change PIN', onclick: function () { act('pin', { current: cur.value, 'new': nw.value }, 'PIN changed'); } })
+  ]));
+
+  app.appendChild(el('div', { 'class': 'card' }, [
+    el('button', { 'class': 'secondary', text: 'Log out', onclick: function () { api('logout').finally(function () { showLogin(''); }); } })
+  ]));
+}
+
+if (token) load();
+// Keep the connection alive (and the remote icon showing) while this page is open
+setInterval(function () { if (token && document.visibilityState === 'visible') api('state').then(function (j) { st = j; }).catch(function () {}); }, 45000);
+</script>
+</body>
+</html>

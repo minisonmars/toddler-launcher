@@ -39,6 +39,31 @@ class MainActivity : Activity() {
     private lateinit var banner: TextView
     private lateinit var empty: TextView
     private lateinit var lockView: LinearLayout
+    private lateinit var remoteIcon: RoundIconButton
+
+    /** Changes made from the remote page show straight away. */
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "remoteSeenAt" -> refresher.post {
+                remoteIcon.visibility = if (settings.remoteConnected()) View.VISIBLE else View.GONE
+            }
+            "parentUntil", "installingUntil", "returnTo", "returnUntil", "setupShown" -> {}
+            else -> {
+                refresher.removeCallbacks(fullRefresh)
+                refresher.postDelayed(fullRefresh, 300)
+            }
+        }
+    }
+    private val fullRefresh = Runnable {
+        if (!isFinishing && hasWindowFocus()) {
+            applyWindowOptions()
+            applyWallpaper()
+            placeCornerButtons()
+            banner.visibility = if (settings.isPaused()) View.VISIBLE else View.GONE
+            apps = Apps.allowed(this, settings)
+            showPage(page)
+        }
+    }
     private lateinit var lockIcon: RoundIconButton
     private lateinit var lockText: TextView
     private lateinit var usage: Usage
@@ -155,6 +180,17 @@ class MainActivity : Activity() {
                 cornerRadius = dp(16).toFloat()
             }
         }
+        // Small icon while a parent is connected from the remote page
+        remoteIcon = RoundIconButton(this, Icon.REMOTE, Ui.SHADE).apply {
+            isClickable = false
+            isFocusable = false
+            contentDescription = "A parent is connected remotely"
+            visibility = View.GONE
+        }
+        root.addView(remoteIcon, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(84)
+        })
+
         root.addView(banner, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
             topMargin = dp(24)
             leftMargin = dp(80)
@@ -367,21 +403,37 @@ class MainActivity : Activity() {
     private fun appBlocked(pkg: String) = rulesApply() && Rules.appBlocked(settings, usage, pkg)
 
     private fun ruleSignature(): String =
-        currentBlock().toString() + "|" + apps.filter { appBlocked(it.pkg) }.joinToString(",") { it.pkg }
+        currentBlock().toString() + "|" + settings.remoteConnected() + "|" + apps.filter { appBlocked(it.pkg) }.joinToString(",") { it.pkg }
 
     override fun onPause() {
         super.onPause()
         refresher.removeCallbacks(refreshTick)
     }
 
+    override fun onStart() {
+        super.onStart()
+        settings.registerListener(prefsListener)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        settings.unregisterListener(prefsListener)
+    }
+
     private fun showPage(p: Int) {
         page = p.coerceIn(0, pageCount() - 1)
         grid.removeAllViews()
         ruleState = ruleSignature()
+        remoteIcon.visibility = if (settings.remoteConnected()) View.VISIBLE else View.GONE
         refresher.removeCallbacks(refreshTick)
         refresher.postDelayed(refreshTick, 20_000)
 
         when (currentBlock()) {
+            Rules.Block.LOCKED -> {
+                lockView.visibility = View.VISIBLE
+                lockIcon.icon = Icon.PAUSE
+                lockText.text = "Break time"
+            }
             Rules.Block.HOURS -> {
                 lockView.visibility = View.VISIBLE
                 lockIcon.icon = Icon.MOON

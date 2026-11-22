@@ -56,7 +56,7 @@ class Usage(ctx: Context) {
 object Rules {
 
     /** Why the toddler screen is locked right now, or null if it isn't. */
-    enum class Block { HOURS, DAILY }
+    enum class Block { LOCKED, HOURS, DAILY }
 
     fun dailyAllowanceSec(s: Settings): Long =
         if (s.dailyLimitMin <= 0) Long.MAX_VALUE else (s.dailyLimitMin + s.bonusToday()) * 60L
@@ -82,6 +82,7 @@ object Rules {
     }
 
     fun block(s: Settings, u: Usage): Block? = when {
+        s.lockedNow -> Block.LOCKED
         outsideHours(s) -> Block.HOURS
         dailyLeftSec(s, u) <= 0 -> Block.DAILY
         else -> null

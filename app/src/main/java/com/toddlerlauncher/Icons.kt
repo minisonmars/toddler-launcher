@@ -12,7 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import kotlin.math.min
 
-enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS }
+enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS, REMOTE }
 
 /**
  * A round button with an icon drawn in code, so every icon has the same size,
@@ -134,6 +134,17 @@ open class RoundIconButton(context: Context, icon: Icon, fill: Int) : View(conte
                 path.lineTo(0.67f, 0.45f)
                 canvas.drawPath(path, paint)
                 canvas.drawLine(0.28f, 0.76f, 0.72f, 0.76f, paint)
+            }
+
+            Icon.REMOTE -> {
+                // A phone with signal waves
+                strokeStyle(0.06f)
+                rect.set(0.24f, 0.30f, 0.50f, 0.76f)
+                canvas.drawRoundRect(rect, 0.05f, 0.05f, paint)
+                rect.set(0.50f, 0.22f, 0.86f, 0.58f)
+                canvas.drawArc(rect, -60f, 60f, false, paint)
+                rect.set(0.42f, 0.14f, 0.94f, 0.66f)
+                canvas.drawArc(rect, -60f, 60f, false, paint)
             }
 
             Icon.MOON -> {

@@ -36,6 +36,13 @@ pattern-protected parent area.
     pull-down, media volume cap, optional screen pinning.
   - **Wi-Fi, mobile data and Bluetooth**: shows whether each is on and opens
     Android's own switches (apps can't switch them directly since Android 10).
+  - **Remote access** (off by default): a small web page on the local network.
+    On your phone's browser open `http://<device address>:8080` (shown in the
+    parent area) and log in with the parent PIN to change settings, allowed apps
+    and limits, give extra time, start "Break time", see the usage report and
+    add Wi-Fi networks (as Android network suggestions). Same Wi-Fi or your
+    phone's hotspot only. A small phone icon shows on the toddler screen while
+    connected. 5 wrong PINs lock it for 5 minutes.
   - **Updates and backup**: install the latest or any earlier version; save or
     restore settings to a file.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
@@ -114,6 +121,8 @@ app/src/main/java/com/toddlerlauncher/
   Apps.kt               app list, launching, app tiles
   Updater.kt            GitHub releases list, download and install
   Catalog.kt            recommended apps list (catalog.json)
+  RemoteServer.kt       remote parent web server, API and Wi-Fi suggestions
+app/src/main/assets/remote.html   the remote parent web page
   InstallReceiver.kt    install result
   Icons.kt              icons drawn in code, hold-to-open button, page dots
   Ui.kt                 colours and row builders for settings screens

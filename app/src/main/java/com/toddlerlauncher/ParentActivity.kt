@@ -67,6 +67,7 @@ class ParentActivity : Activity() {
             "updates" -> buildUpdates(rows)
             "device" -> buildDevice(rows)
             "recommended" -> buildRecommended(rows)
+            "remote" -> buildRemote(rows)
             else -> buildMenu(rows)
         }
         scroll.post { scroll.scrollTo(0, y) }
@@ -114,6 +115,10 @@ class ParentActivity : Activity() {
             warn = settings.isPaused()
         ) { open("protect") }
         rows.menuItem("Wi-Fi, mobile data and Bluetooth", "Quick switches for you") { open("connect") }
+        rows.menuItem(
+            "Remote access",
+            if (settings.remoteOn) "On: change settings from your phone's browser" else "Off",
+        ) { open("remote") }
         rows.menuItem("Updates and backup", "You have version ${Updater.installedVersion(this)}") { open("updates") }
         rows.menuItem("This device", "Use your normal home screen, uninstall") { open("device") }
     }
@@ -424,6 +429,53 @@ class ParentActivity : Activity() {
         rows.button("Save settings to a file") { saveBackup() }
         rows.button("Restore settings from a file") { openBackup() }
         rows.note("Includes allowed apps, limits, layout and your PIN or pattern. A wallpaper photo and the usage history aren't included.")
+    }
+
+    // ---------- Remote access ----------
+
+    private fun buildRemote(rows: Rows) {
+        sectionTitle(rows, "Remote access")
+        rows.note(
+            "Change every setting, allowed apps and limits, give extra time, start break time, see the usage report " +
+                "and add Wi-Fi networks from your own phone's browser. Both devices need to be on the same Wi-Fi " +
+                "(or your phone's hotspot). Log in with your parent PIN."
+        )
+        rows.switchRow("Allow remote access", settings.remoteOn) { on ->
+            settings.remoteOn = on
+            col.postDelayed({ build() }, 300)
+            on
+        }
+        if (!Device.isGuardEnabled(this)) {
+            rows.note("Toddler Guard is off in Android. Remote access runs inside it, so switch it on in Lock-down checks.")
+                .setTextColor(Ui.RED)
+        }
+        if (settings.remoteOn) {
+            val addresses = RemoteServer.addresses()
+            rows.header("On your phone, open")
+            if (addresses.isEmpty()) {
+                rows.note("This device isn't on a network right now. Connect it to Wi-Fi or to your phone's hotspot.")
+                    .setTextColor(Ui.RED)
+            }
+            for (a in addresses) {
+                rows.col.addView(TextView(this).apply {
+                    text = "http://$a:${RemoteServer.PORT}"
+                    textSize = 22f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextIsSelectable(true)
+                    setPadding(0, dp(4), 0, dp(4))
+                })
+            }
+            rows.note("Type it into your browser exactly as shown (http, not https). It can take up to 10 seconds to start after switching on.")
+            if (settings.isDefaultPin()) rows.note("You're still using the default PIN ${Settings.DEFAULT_PIN}. Change it first, as anyone on the same Wi-Fi could try it.").setTextColor(Ui.RED)
+            rows.note("While you're connected, a small phone icon shows at the bottom of the toddler screen.")
+            rows.header("No Wi-Fi?")
+            rows.note(
+                "Turn on your phone's hotspot and connect this device to it (Wi-Fi switch in \"Wi-Fi, mobile data " +
+                    "and Bluetooth\"). Then open the address above on your phone. A browser can't use Bluetooth " +
+                    "or Wi-Fi Direct for this."
+            )
+            rows.button("Refresh the address") { build() }
+        }
     }
 
     // ---------- Recommended apps ----------

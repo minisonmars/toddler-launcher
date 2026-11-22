@@ -48,6 +48,7 @@ class GuardService : AccessibilityService() {
         showBlocker(isActive() && settings.blockPullDown)
         lastTickAt = SystemClock.elapsedRealtime()
         handler.postDelayed(tick, TICK_MS)
+        manageRemote()
         // Volume changes: pull the media volume back down to the cap straight away
         contentResolver.registerContentObserver(
             android.provider.Settings.System.CONTENT_URI, true, volumeObserver
@@ -71,7 +72,22 @@ class GuardService : AccessibilityService() {
         }
     }
 
+    private var remote: RemoteServer? = null
+
+    /** The remote parent page runs while it's switched on in the parent area. */
+    private fun manageRemote() {
+        val want = settings.remoteOn
+        val r = remote
+        if (want && r == null) remote = RemoteServer(this).also { it.start() }
+        else if (want && r != null && !r.running) r.start()
+        else if (!want && r != null) {
+            r.stop()
+            remote = null
+        }
+    }
+
     private fun tickOnce() {
+        manageRemote()
         val now = SystemClock.elapsedRealtime()
         val elapsed = ((now - lastTickAt) / 1000).coerceIn(0, TICK_MS / 1000 + 5)
         lastTickAt = now
@@ -117,6 +133,8 @@ class GuardService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        remote?.stop()
+        remote = null
         try {
             contentResolver.unregisterContentObserver(volumeObserver)
         } catch (e: Exception) {
