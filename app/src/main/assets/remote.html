@@ -134,7 +134,8 @@ function settingRow(s) {
 }
 
 function set(key, value) {
-  api('set', { key: key, value: value }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); });
+  api('set', { key: key, value: value }).then(function () { toast('Saved'); if (key === 'hoursOn') setTimeout(load, 400); })
+    .catch(function (e) { toast(e.message); });
 }
 
 function act(path, body, msg) {
@@ -182,7 +183,6 @@ function render() {
   });
   order.forEach(function (g) {
     var extra = [];
-    if (g === 'Allowed hours') extra.push(el('p', { 'class': 'note', text: 'Switch it on, then press Refresh to set the times.' }));
     app.appendChild(card(g, groups[g].concat(extra)));
   });
 
