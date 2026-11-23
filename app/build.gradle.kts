@@ -35,3 +35,8 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    // Makes the QR code for remote access (works offline, nothing is sent anywhere)
+    implementation("com.google.zxing:core:3.5.3")
+}

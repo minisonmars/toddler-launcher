@@ -464,8 +464,16 @@ class ParentActivity : Activity() {
                     setTextIsSelectable(true)
                     setPadding(0, dp(4), 0, dp(4))
                 })
+                // QR code of the address: scan it with your phone's camera instead of typing
+                val size = minOf(resources.displayMetrics.widthPixels - dp(64), dp(300))
+                Qr.bitmap("http://$a:${RemoteServer.PORT}", size)?.let { bmp ->
+                    rows.col.addView(android.widget.ImageView(this).apply {
+                        setImageBitmap(bmp)
+                        contentDescription = "QR code for http://$a:${RemoteServer.PORT}"
+                    }, LinearLayout.LayoutParams(size, size).apply { setMargins(0, dp(8), 0, dp(12)) })
+                }
             }
-            rows.note("Type it into your browser exactly as shown (http, not https). It can take up to 10 seconds to start after switching on.")
+            rows.note("Scan the QR code with your phone's camera, or type the address into your browser exactly as shown (http, not https). It can take up to 10 seconds to start after switching on.")
             if (settings.isDefaultPin()) rows.note("You're still using the default PIN ${Settings.DEFAULT_PIN}. Change it first, as anyone on the same Wi-Fi could try it.").setTextColor(Ui.RED)
             rows.note("While you're connected, a small phone icon shows at the bottom of the toddler screen.")
             rows.header("No Wi-Fi?")

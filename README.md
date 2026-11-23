@@ -41,7 +41,7 @@ pattern-protected parent area.
     parent area) and log in with the parent PIN to change settings, allowed apps
     and limits, give extra time, start "Break time", see the usage report and
     add Wi-Fi networks (as Android network suggestions). Same Wi-Fi or your
-    phone's hotspot only. A small phone icon shows on the toddler screen while
+    phone's hotspot only. The parent area also shows a QR code of the address to scan. A small phone icon shows on the toddler screen while
     connected. 5 wrong PINs lock it for 5 minutes.
   - **Updates and backup**: install the latest or any earlier version; save or
     restore settings to a file.
