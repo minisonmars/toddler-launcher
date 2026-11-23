@@ -103,6 +103,8 @@ Builds run only in GitHub Actions (`.github/workflows/build.yml`) on every push 
 compileSdk/targetSdk 34, minSdk 26 (Android 8.0). Each successful build publishes
 a GitHub Release `v0.1.<run number>` with the APK. A fixed debug keystore
 (`app/debug.keystore`) signs every build so new versions install over old ones.
+Builds are release builds (not debuggable), which Google Play Protect treats less
+suspiciously.
 
 ## Layout
 

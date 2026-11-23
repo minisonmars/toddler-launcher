@@ -27,6 +27,16 @@ android {
         }
     }
 
+    // Builds are "release" builds (not debuggable), signed with the same fixed key so
+    // they still install over earlier versions. Debuggable apps that use accessibility
+    // look more suspicious to Google Play Protect.
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

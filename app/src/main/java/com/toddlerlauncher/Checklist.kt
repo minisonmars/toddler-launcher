@@ -64,7 +64,7 @@ object Checklist {
 
         out += rows.step(
             "3. Keep Toddler Guard awake",
-            "Stops battery saving from switching Toddler Guard off in the background.",
+            "Stops battery saving from switching Toddler Guard off in the background. In the list, show all apps, pick Toddler Launcher and choose Don't optimise (or Unrestricted).",
             "Allow background use",
             done(2)
         ) {

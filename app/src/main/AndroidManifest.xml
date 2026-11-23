@@ -4,8 +4,6 @@
     <!-- Used only to check for and download app updates from GitHub -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Lets the setup screen ask Android not to put Toddler Guard to sleep -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Only to show whether Wi-Fi, mobile data and Bluetooth are on, in the parent area -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />

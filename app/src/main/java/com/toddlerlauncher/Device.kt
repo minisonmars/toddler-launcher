@@ -79,11 +79,9 @@ object Device {
         open(ctx, Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
     }
 
+    /** Opens Android's battery optimisation list, where the parent picks Toddler Launcher > Don't optimise. */
     fun askBatteryUnrestricted(ctx: Context) {
-        open(
-            ctx,
-            Intent(AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-        ) || open(ctx, Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        open(ctx, Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) || openAppInfo(ctx)
     }
 
     fun openInstallPermission(ctx: Context) {
