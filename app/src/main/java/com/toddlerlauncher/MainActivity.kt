@@ -187,12 +187,12 @@ class MainActivity : Activity() {
             contentDescription = "A parent is connected remotely"
             visibility = View.GONE
         }
-        root.addView(remoteIcon, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
-            bottomMargin = dp(84)
+        root.addView(remoteIcon, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = dp(8)
         })
 
         root.addView(banner, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = dp(24)
+            topMargin = dp(54)
             leftMargin = dp(80)
             rightMargin = dp(80)
         })
@@ -240,6 +240,7 @@ class MainActivity : Activity() {
             return
         }
 
+        RemoteService.sync(this)
         applyWindowOptions()
         applyWallpaper()
         placeCornerButtons()

@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Lets the remote page add Wi-Fi networks for the device to join (network suggestions) -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Keeps the remote parent page running while the child uses other apps -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -75,6 +79,11 @@
         <receiver
             android:name=".InstallReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".RemoteService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
 
         <!-- Toddler Guard: sends the child back home if a blocked app or the notification shade opens -->
         <service

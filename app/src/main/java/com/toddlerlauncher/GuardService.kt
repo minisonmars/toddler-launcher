@@ -72,17 +72,50 @@ class GuardService : AccessibilityService() {
         }
     }
 
-    private var remote: RemoteServer? = null
+    private var remoteWanted: Boolean? = null
+    private var remoteSyncedAt = 0L
 
-    /** The remote parent page runs while it's switched on in the parent area. */
+    /** The remote parent page runs in its own service (see RemoteService) while it's switched on. */
     private fun manageRemote() {
         val want = settings.remoteOn
-        val r = remote
-        if (want && r == null) remote = RemoteServer(this).also { it.start() }
-        else if (want && r != null && !r.running) r.start()
-        else if (!want && r != null) {
-            r.stop()
-            remote = null
+        val now = SystemClock.elapsedRealtime()
+        if (want != remoteWanted || (want && now - remoteSyncedAt > 60_000)) {
+            remoteWanted = want
+            remoteSyncedAt = now
+            RemoteService.sync(this)
+        }
+        showRemoteBadge(settings.remoteConnected() && foreground != packageName)
+    }
+
+    // Small "parent connected" icon at the top of the screen, over the child's apps too
+    private var badge: View? = null
+
+    private fun showRemoteBadge(show: Boolean) {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val current = badge
+        if (show && current == null) {
+            val size = (36 * resources.displayMetrics.density).toInt()
+            val v = RoundIconButton(this, Icon.REMOTE, Ui.SHADE)
+            val lp = WindowManager.LayoutParams(
+                size, size,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+            )
+            lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            lp.y = (6 * resources.displayMetrics.density).toInt()
+            try {
+                wm.addView(v, lp)
+                badge = v
+            } catch (e: Exception) {
+            }
+        } else if (!show && current != null) {
+            try {
+                wm.removeView(current)
+            } catch (e: Exception) {
+            }
+            badge = null
         }
     }
 
@@ -133,8 +166,7 @@ class GuardService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        remote?.stop()
-        remote = null
+        showRemoteBadge(false)
         try {
             contentResolver.unregisterContentObserver(volumeObserver)
         } catch (e: Exception) {
@@ -150,6 +182,7 @@ class GuardService : AccessibilityService() {
         showBlocker(active && settings.blockPullDown)
         val pkg = event.packageName?.toString() ?: return
         if (pkg != "com.android.systemui" && !isKeyboard(pkg) && !isPermissionDialog(pkg)) foreground = pkg
+        showRemoteBadge(settings.remoteConnected() && foreground != packageName)
         if (!active) return
 
         if (pkg == packageName || isKeyboard(pkg) || isPermissionDialog(pkg)) return

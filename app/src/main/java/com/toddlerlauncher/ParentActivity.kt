@@ -442,12 +442,9 @@ class ParentActivity : Activity() {
         )
         rows.switchRow("Allow remote access", settings.remoteOn) { on ->
             settings.remoteOn = on
+            RemoteService.sync(this)
             col.postDelayed({ build() }, 300)
             on
-        }
-        if (!Device.isGuardEnabled(this)) {
-            rows.note("Toddler Guard is off in Android. Remote access runs inside it, so switch it on in Lock-down checks.")
-                .setTextColor(Ui.RED)
         }
         if (settings.remoteOn) {
             val addresses = RemoteServer.addresses()
@@ -473,9 +470,9 @@ class ParentActivity : Activity() {
                     }, LinearLayout.LayoutParams(size, size).apply { setMargins(0, dp(8), 0, dp(12)) })
                 }
             }
-            rows.note("Scan the QR code with your phone's camera, or type the address into your browser exactly as shown (http, not https). It can take up to 10 seconds to start after switching on.")
+            rows.note("Scan the QR code with your phone's camera, or type the address into your browser exactly as shown (http, not https). While it is on, a quiet notification keeps it running even when your child is in another app.")
             if (settings.isDefaultPin()) rows.note("You're still using the default PIN ${Settings.DEFAULT_PIN}. Change it first, as anyone on the same Wi-Fi could try it.").setTextColor(Ui.RED)
-            rows.note("While you're connected, a small phone icon shows at the bottom of the toddler screen.")
+            rows.note("While you're connected, a small phone icon shows at the top of the screen, over your child's apps too.")
             rows.header("No Wi-Fi?")
             rows.note(
                 "Turn on your phone's hotspot and connect this device to it (Wi-Fi switch in \"Wi-Fi, mobile data " +

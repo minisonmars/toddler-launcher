@@ -41,8 +41,9 @@ pattern-protected parent area.
     parent area) and log in with the parent PIN to change settings, allowed apps
     and limits, give extra time, start "Break time", see the usage report and
     add Wi-Fi networks (as Android network suggestions). Same Wi-Fi or your
-    phone's hotspot only. The parent area also shows a QR code of the address to scan. A small phone icon shows on the toddler screen while
-    connected. 5 wrong PINs lock it for 5 minutes.
+    phone's hotspot only. The parent area also shows a QR code of the address to scan. It runs in a foreground service (quiet notification)
+    so it keeps working while the child is in another app. A small phone icon
+    shows at the top of the screen, over other apps too, while connected. 5 wrong PINs lock it for 5 minutes.
   - **Updates and backup**: install the latest or any earlier version; save or
     restore settings to a file.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
@@ -122,6 +123,7 @@ app/src/main/java/com/toddlerlauncher/
   Updater.kt            GitHub releases list, download and install
   Catalog.kt            recommended apps list (catalog.json)
   RemoteServer.kt       remote parent web server, API and Wi-Fi suggestions
+  RemoteService.kt      foreground service that keeps the remote page running
 app/src/main/assets/remote.html   the remote parent web page
   InstallReceiver.kt    install result
   Icons.kt              icons drawn in code, hold-to-open button, page dots
