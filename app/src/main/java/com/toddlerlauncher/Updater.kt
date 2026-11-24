@@ -175,7 +175,7 @@ object Updater {
         }.start()
     }
 
-    /** Installed version, then each newer version with what changed, then older versions in a drop-down. */
+    /** Newer versions with what changed, then the installed version, then older versions behind a button. */
     private fun showList(activity: Activity, settings: Settings, list: List<Release>) {
         val current = installedVersion(activity)
         if (list.isEmpty()) {
@@ -200,16 +200,11 @@ object Updater {
         fun info(r: Release) = String.format(Locale.UK, "%s  ·  %.1f MB", r.date, r.sizeBytes / 1_048_576.0)
         fun notes(r: Release) = r.notes.ifBlank { "No notes for this version." }
 
-        val installed = list.firstOrNull { it.version == current }
-        col.addView(text("Installed: version $current", 18f, bold = true, colour = Ui.GREEN))
-        if (installed != null) col.addView(text(notes(installed), 14f, colour = Ui.GREY))
-
         val newer = list.filter { compare(it.version, current) > 0 }
         if (newer.isEmpty()) {
             col.addView(text("You have the latest version.", 16f))
         } else {
-            col.addView(text(if (newer.size == 1) "New version" else "${newer.size} new versions", 18f, bold = true)
-                .apply { setPadding(0, dp(18), 0, dp(4)) })
+            col.addView(text(if (newer.size == 1) "New version" else "${newer.size} new versions", 18f, bold = true))
             for (r in newer) {
                 col.addView(text("Version ${r.version}" + if (r === newer.first()) "  (latest)" else "", 17f, bold = true)
                     .apply { setPadding(0, dp(12), 0, 0) })
@@ -225,6 +220,11 @@ object Updater {
                 }
             })
         }
+
+        val installed = list.firstOrNull { it.version == current }
+        col.addView(text("Installed: version $current", 18f, bold = true, colour = Ui.GREEN)
+            .apply { if (newer.isNotEmpty()) setPadding(0, dp(22), 0, dp(4)) })
+        if (installed != null) col.addView(text(notes(installed), 14f, colour = Ui.GREY))
 
         val older = list.filter { compare(it.version, current) < 0 }
         if (older.isNotEmpty()) {

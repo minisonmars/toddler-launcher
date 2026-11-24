@@ -5,7 +5,7 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- App updates: new versions are listed first, above the version you have
 
 ## v0.1.18
 
