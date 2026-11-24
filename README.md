@@ -9,7 +9,7 @@ pattern-protected parent area.
 - **Toddler screen**: big app icons in a grid on a colourful or photo wallpaper.
   Extra apps go onto more pages, with big arrows (or swipe sideways).
 - **Parent button**: a gear in one corner. A tap does nothing; hold it (3 seconds
-  by default, a yellow ring fills up) and enter the parent code.
+  by default, a yellow ring fills up) and enter the parent code on the built-in number pad (it opens as soon as the right PIN is in).
   The code starts as **0000**.
 - **Parent area**: a menu of sections, each with its own icon and opening its own screen.
   - **Lock-down checks**: a tick or cross for each setup step (home app, Toddler
@@ -136,6 +136,7 @@ app/src/main/java/com/toddlerlauncher/
   GuardService.kt       Toddler Guard: blocks other apps, counts and limits screen time, volume cap
   Gate.kt               PIN and pattern prompts, changing them
   PatternView.kt        3 by 3 pattern pad
+  PinPad.kt             built-in number pad for the PIN
   Settings.kt           saved options, PIN/pattern hashes, backup JSON
   Device.kt             checks and shortcuts to Android settings
   Apps.kt               app list, launching, app tiles

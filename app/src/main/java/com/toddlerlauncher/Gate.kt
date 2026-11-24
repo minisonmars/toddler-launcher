@@ -43,18 +43,36 @@ object Gate {
     }
 
     private fun askPin(activity: Activity, settings: Settings, onOk: () -> Unit) {
-        val pin = pinField(activity, "PIN")
-        val dialog = AlertDialog.Builder(activity)
-            .setTitle("Parent PIN")
-            .setView(boxed(activity, pin))
-            .setPositiveButton("OK") { _, _ ->
-                if (settings.checkPin(pin.text.toString())) right(onOk) else wrong(activity)
+        // Keys sized to fit the screen, sideways too
+        val dm = activity.resources.displayMetrics
+        val room = (minOf(dm.heightPixels, dm.widthPixels) - Ui.dp(activity, 250)) / 4
+        val keySize = room.coerceIn(Ui.dp(activity, 44), Ui.dp(activity, 68))
+        val pad = PinPad(activity, keySize)
+        lateinit var dialog: AlertDialog
+        // Opens as soon as the right PIN is in (no need to press the tick)
+        pad.onChange = { digits ->
+            if (digits.length >= 4 && settings.checkPin(digits)) {
+                dialog.dismiss()
+                right(onOk)
             }
+        }
+        pad.onEnter = { digits ->
+            if (digits.isEmpty()) {
+                // nothing typed yet
+            } else if (settings.checkPin(digits)) {
+                dialog.dismiss()
+                right(onOk)
+            } else {
+                wrong(activity)
+                if (SystemClock.elapsedRealtime() < lockedUntil) dialog.dismiss() else pad.showWrong()
+            }
+        }
+        dialog = AlertDialog.Builder(activity)
+            .setTitle("Parent PIN")
+            .setView(android.widget.ScrollView(activity).apply { addView(boxed(activity, pad)) })
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Forgot?") { _, _ -> forgot(activity, settings, onOk) }
             .create()
-        dialog.setOnShowListener { pin.requestFocus() }
-        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
         dialog.show()
     }
 
@@ -125,7 +143,15 @@ object Gate {
             addView(newPin)
             addView(again)
         }
-        AlertDialog.Builder(activity)
+        lateinit var dialog: AlertDialog
+        // The keyboard's Enter key on the second box saves, like the Save button
+        again.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+        again.setOnEditorActionListener { _, _, _ ->
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick()
+            true
+        }
+        newPin.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+        dialog = AlertDialog.Builder(activity)
             .setTitle("Change PIN")
             .setView(boxed(activity, box))
             .setPositiveButton("Save") { _, _ ->
@@ -141,7 +167,8 @@ object Gate {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create()
+        dialog.show()
     }
 
     fun changePattern(activity: Activity, settings: Settings, onDone: () -> Unit) {
