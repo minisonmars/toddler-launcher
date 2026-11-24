@@ -228,21 +228,36 @@ object Updater {
 
         val older = list.filter { compare(it.version, current) < 0 }
         if (older.isNotEmpty()) {
-            col.addView(text("Older versions", 18f, bold = true).apply { setPadding(0, dp(22), 0, dp(4)) })
+            // Older versions stay out of the way until asked for
+            val olderBox = android.widget.LinearLayout(activity).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                visibility = android.view.View.GONE
+            }
+            val showOlder = Button(activity).apply {
+                text = "Show older versions (${older.size})"
+                isAllCaps = false
+            }
+            showOlder.setOnClickListener {
+                showOlder.visibility = android.view.View.GONE
+                olderBox.visibility = android.view.View.VISIBLE
+            }
+            col.addView(showOlder)
+            col.addView(olderBox)
+            olderBox.addView(text("Older versions", 18f, bold = true).apply { setPadding(0, dp(22), 0, dp(4)) })
             val spinner = Spinner(activity)
             val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, older.map { "${it.version}  (${it.date})" })
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinner.adapter = adapter
-            col.addView(spinner)
+            olderBox.addView(spinner)
             val olderNotes = text(notes(older.first()), 14f, colour = Ui.GREY)
-            col.addView(olderNotes)
+            olderBox.addView(olderNotes)
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
                     olderNotes.text = notes(older[pos])
                 }
                 override fun onNothingSelected(p: AdapterView<*>?) {}
             }
-            col.addView(Button(activity).apply {
+            olderBox.addView(Button(activity).apply {
                 text = "Go back to this version"
                 isAllCaps = false
                 setOnClickListener {

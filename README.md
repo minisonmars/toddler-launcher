@@ -45,7 +45,7 @@ pattern-protected parent area.
     so it keeps working while the child is in another app. A small phone icon
     shows at the top of the screen, over other apps too, while connected. 5 wrong PINs lock it for 5 minutes.
   - **Updates and backup**: shows the installed version, each newer version with
-    its changelog, and older versions in a drop-down; save or
+    its changelog, and older versions (behind a "Show older versions" button) in a drop-down; save or
     restore settings to a file.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
     or until you open Toddler Launcher from its icon), change the home app,
