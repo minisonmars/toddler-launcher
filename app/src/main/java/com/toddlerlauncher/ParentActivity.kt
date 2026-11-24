@@ -44,6 +44,13 @@ class ParentActivity : Activity() {
         super.onResume()
         settings.startParentMode()
         build()
+        // Opening the parent area checks for a new version (at most every 6 hours otherwise)
+        if (section.isEmpty()) {
+            val before = settings.latestVersion
+            Updater.checkInBackground(this, force = true) {
+                if (!isFinishing && settings.latestVersion != before) build()
+            }
+        }
     }
 
     private val section get() = intent.getStringExtra(SECTION) ?: ""
@@ -121,7 +128,13 @@ class ParentActivity : Activity() {
             if (settings.remoteOn) "On: change settings from your phone's browser" else "Off",
             icon = Icon.REMOTE, colour = Ui.PURPLE
         ) { open("remote") }
-        rows.menuItem("Updates and backup", "You have version ${Updater.installedVersion(this)}", icon = Icon.DOWNLOAD, colour = Ui.TEAL) { open("updates") }
+        val newVersion = Updater.available(this)
+        rows.menuItem(
+            "Updates and backup",
+            if (newVersion != null) "Version $newVersion is ready to install (you have ${Updater.installedVersion(this)})"
+            else "You have version ${Updater.installedVersion(this)}",
+            warn = newVersion != null, icon = Icon.DOWNLOAD, colour = Ui.TEAL
+        ) { open("updates") }
         rows.menuItem("This device", "Use your normal home screen, uninstall", icon = Icon.DEVICE, colour = Ui.GREY) { open("device") }
     }
 

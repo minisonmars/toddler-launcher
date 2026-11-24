@@ -78,6 +78,37 @@ object Updater {
         }
     }
 
+    // ---------- Automatic update check ----------
+
+    private const val CHECK_EVERY_MS = 6 * 60 * 60_000L
+    @Volatile private var checking = false
+
+    /** Quietly checks GitHub at most every 6 hours (or now if [force]); the answer is saved in settings. */
+    fun checkInBackground(ctx: Context, force: Boolean = false, done: (() -> Unit)? = null) {
+        val settings = Settings(ctx)
+        val now = System.currentTimeMillis()
+        if (checking || (!force && now - settings.updateCheckedAt < CHECK_EVERY_MS)) return
+        checking = true
+        Thread {
+            try {
+                val latest = fetchReleases().firstOrNull()
+                settings.updateCheckedAt = System.currentTimeMillis()
+                if (latest != null && latest.version != settings.latestVersion) settings.latestVersion = latest.version
+                if (done != null) android.os.Handler(android.os.Looper.getMainLooper()).post(done)
+            } catch (e: Exception) {
+                // no internet or GitHub busy: try again next time
+            } finally {
+                checking = false
+            }
+        }.start()
+    }
+
+    /** The newer version waiting to be installed, or null. */
+    fun available(ctx: Context): String? {
+        val v = Settings(ctx).latestVersion
+        return if (v.isNotEmpty() && compare(v, installedVersion(ctx)) > 0) v else null
+    }
+
     /** Compares version numbers like 0.1.10 and 0.1.9 part by part. */
     fun compare(a: String, b: String): Int {
         val x = a.split('.').map { it.toIntOrNull() ?: 0 }

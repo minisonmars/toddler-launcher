@@ -5,6 +5,7 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- Automatic update check: the launcher quietly looks for a new version on GitHub (when the parent area opens, and at most every 6 hours otherwise). When there is one, "Updates and backup" in the parent area turns red and says which version, and the update button on the toddler screen turns orange
 - (nothing yet)
 
 ## v0.1.23

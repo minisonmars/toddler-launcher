@@ -89,6 +89,14 @@ class Settings(ctx: Context) {
             return id
         }
 
+    /** Newest version seen on GitHub by the automatic update check, and when it last looked. */
+    var latestVersion: String
+        get() = getS("latestVersion", "")
+        set(v) = putS("latestVersion", v)
+    var updateCheckedAt: Long
+        get() = getL("updateCheckedAt", 0L)
+        set(v) = putL("updateCheckedAt", v)
+
     var remoteOn: Boolean
         get() = getB("remoteOn", false)
         set(v) = putB("remoteOn", v)
@@ -326,7 +334,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome") || k == "deviceId") continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome") || k == "deviceId" || k == "latestVersion" || k == "updateCheckedAt") continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

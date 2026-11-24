@@ -49,7 +49,7 @@ class MainActivity : Activity() {
             "remoteSeenAt" -> refresher.post {
                 remoteIcon.visibility = if (settings.remoteConnected()) View.VISIBLE else View.GONE
             }
-            "parentUntil", "installingUntil", "returnTo", "returnUntil", "setupShown" -> {}
+            "parentUntil", "installingUntil", "returnTo", "returnUntil", "setupShown", "updateCheckedAt" -> {}
             else -> {
                 refresher.removeCallbacks(fullRefresh)
                 refresher.postDelayed(fullRefresh, 300)
@@ -261,6 +261,7 @@ class MainActivity : Activity() {
         }
 
         RemoteService.sync(this)
+        Updater.checkInBackground(this)
         applyWindowOptions()
         applyWallpaper()
         placeCornerButtons()
@@ -458,6 +459,8 @@ class MainActivity : Activity() {
         remoteIcon.requestLayout()
         gear.holdMs = settings.holdSeconds * 1000L
         update.visibility = if (showUpdate) View.VISIBLE else View.GONE
+        // Orange when a new version is waiting
+        update.fill = if (Updater.available(this) != null) Ui.ORANGE else Ui.SHADE
         qrButton.visibility = if (showQr) View.VISIBLE else View.GONE
         qrButton.requestLayout()
         gear.requestLayout()
