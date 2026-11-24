@@ -364,6 +364,10 @@ class ParentActivity : Activity() {
         rows.choiceRow("Hold for", Settings.HOLD_TIMES, settings.holdSeconds.toString()) {
             settings.holdSeconds = it.toInt()
         }
+        rows.switchRow("Show the QR code button on the toddler screen (while remote access is on)", settings.showQrOnHome) { on ->
+            settings.showQrOnHome = on
+            on
+        }
         rows.switchRow("Show the update button on the toddler screen", settings.showUpdateOnHome) { on ->
             settings.showUpdateOnHome = on
             on

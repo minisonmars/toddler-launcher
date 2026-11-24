@@ -13,7 +13,7 @@ import android.view.View
 import kotlin.math.min
 
 enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS, REMOTE,
-    CHECKLIST, GRID, STAR, CLOCK, CHART, PALETTE, LOCK, SHIELD, WIFI, DEVICE }
+    CHECKLIST, GRID, STAR, CLOCK, CHART, PALETTE, LOCK, SHIELD, WIFI, DEVICE, QR }
 
 /**
  * A round button with an icon drawn in code, so every icon has the same size,
@@ -259,6 +259,24 @@ open class RoundIconButton(context: Context, icon: Icon, fill: Int) : View(conte
                 canvas.drawRoundRect(rect, 0.06f, 0.06f, paint)
                 fillStyle()
                 canvas.drawCircle(0.5f, 0.73f, 0.035f, paint)
+            }
+
+            Icon.QR -> {
+                // Three corner squares and a few dots, like a QR code
+                strokeStyle(0.05f)
+                for ((x, y) in listOf(0.24f to 0.24f, 0.56f to 0.24f, 0.24f to 0.56f)) {
+                    rect.set(x, y, x + 0.20f, y + 0.20f)
+                    canvas.drawRect(rect, paint)
+                }
+                fillStyle()
+                for ((x, y) in listOf(0.31f to 0.31f, 0.63f to 0.31f, 0.31f to 0.63f)) {
+                    rect.set(x, y, x + 0.06f, y + 0.06f)
+                    canvas.drawRect(rect, paint)
+                }
+                for ((x, y) in listOf(0.58f to 0.58f, 0.70f to 0.58f, 0.64f to 0.66f, 0.58f to 0.72f, 0.72f to 0.72f)) {
+                    rect.set(x, y, x + 0.07f, y + 0.07f)
+                    canvas.drawRect(rect, paint)
+                }
             }
 
             Icon.MOON -> {

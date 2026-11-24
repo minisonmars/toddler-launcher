@@ -400,6 +400,7 @@ class RemoteServer(private val ctx: Context) {
             Item("keepScreenOn", "Keep the screen on", "Look and layout", "bool", YES_NO) { it.keepScreenOn },
             Item("gearCorner", "Parent button corner", "Parent button", "str", Settings.CORNERS) { it.gearCorner },
             Item("holdSeconds", "Hold the parent button for", "Parent button", "int", Settings.HOLD_TIMES) { it.holdSeconds },
+            Item("showQrOnHome", "QR code button on the toddler screen", "Parent button", "bool", YES_NO) { it.showQrOnHome },
             Item("showUpdateOnHome", "Update button on the toddler screen", "Parent button", "bool", YES_NO) { it.showUpdateOnHome },
         )
 

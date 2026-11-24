@@ -171,6 +171,10 @@ class Settings(ctx: Context) {
     var holdSeconds: Int
         get() = getI("holdSeconds", 3)
         set(v) = putI("holdSeconds", v)
+    var showQrOnHome: Boolean // QR code button on the toddler screen while remote access is on
+        get() = getB("showQrOnHome", true)
+        set(v) = putB("showQrOnHome", v)
+
     var showUpdateOnHome: Boolean // handy while the app is being built
         get() = getB("showUpdateOnHome", true)
         set(v) = putB("showUpdateOnHome", v)

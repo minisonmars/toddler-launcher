@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var empty: TextView
     private lateinit var lockView: LinearLayout
     private lateinit var remoteIcon: RoundIconButton
+    private lateinit var qrButton: RoundIconButton
     private lateinit var nameView: ChildNameView
 
     /** Changes made from the remote page show straight away. */
@@ -169,6 +170,13 @@ class MainActivity : Activity() {
             setOnClickListener { Updater.showDialog(this@MainActivity, settings) }
         }
         root.addView(update, FrameLayout.LayoutParams(dp(60), dp(60)))
+
+        // QR code for the remote parent page, next to the update button
+        qrButton = RoundIconButton(this, Icon.QR, Ui.SHADE).apply {
+            contentDescription = "QR code for remote parent access"
+            setOnClickListener { showRemoteQr() }
+        }
+        root.addView(qrButton, FrameLayout.LayoutParams(dp(48), dp(48)))
 
         banner = TextView(this).apply {
             text = "Protection paused. Hold the gear to switch it back on."
@@ -349,6 +357,44 @@ class MainActivity : Activity() {
         }
     }
 
+    /** Shows the remote parent page's address as a QR code, to scan with a parent's phone. */
+    private fun showRemoteQr() {
+        val addresses = RemoteServer.addresses()
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+        }
+        if (addresses.isEmpty()) {
+            col.addView(TextView(this).apply {
+                text = "This device isn't on a network right now. Connect it to Wi-Fi or to your phone's hotspot."
+                textSize = 16f
+            })
+        }
+        val size = minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) - dp(120)
+        for (a in addresses) {
+            val url = "http://$a:${RemoteServer.PORT}"
+            Qr.bitmap(url, size.coerceAtMost(dp(300)))?.let { bmp ->
+                col.addView(android.widget.ImageView(this).apply {
+                    setImageBitmap(bmp)
+                    contentDescription = "QR code for $url"
+                })
+            }
+            col.addView(TextView(this).apply {
+                text = url
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, dp(12))
+            })
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Remote parent access")
+            .setMessage("Scan with your phone's camera (same Wi-Fi), then log in with the parent PIN.")
+            .setView(android.widget.ScrollView(this).apply { addView(col) })
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
     private fun placeCornerButtons() {
         val corner = settings.gearCorner
         val top = corner.startsWith("t")
@@ -358,10 +404,18 @@ class MainActivity : Activity() {
             gravity = vertical or (if (right) Gravity.END else Gravity.START)
             setMargins(dp(12), dp(12), dp(12), dp(12))
         }
-        // The update button sits in the other corner along the same edge
+        // The update button sits in the other corner along the same edge, the QR button next to it
+        val showUpdate = settings.showUpdateOnHome
+        val showQr = settings.remoteOn && settings.showQrOnHome
+        val otherSide = if (right) Gravity.START else Gravity.END
         (update.layoutParams as FrameLayout.LayoutParams).apply {
-            gravity = vertical or (if (right) Gravity.START else Gravity.END)
+            gravity = vertical or otherSide
             setMargins(dp(12), dp(12), dp(12), dp(12))
+        }
+        (qrButton.layoutParams as FrameLayout.LayoutParams).apply {
+            gravity = vertical or otherSide
+            val side = if (showUpdate) dp(80) else dp(12)
+            setMargins(side, dp(18), side, dp(18))
         }
         // Remote icon along the top, on the parent button's side (next to it if the button is at the top)
         (remoteIcon.layoutParams as FrameLayout.LayoutParams).apply {
@@ -369,21 +423,32 @@ class MainActivity : Activity() {
             val side = if (top) dp(80) else dp(12)
             setMargins(side, dp(23), side, 0)
         }
-        // The child's name fills the space between
+        // The child's name sits in the middle of the screen: the same gap on both sides,
+        // wide enough to clear whatever is along the top
         nameView.name = settings.childName
         nameView.spacing = Settings.nameSpacingEm(settings.nameSpacing)
         nameView.colours = Settings.nameColourSet(settings.nameColours)
         nameView.action = settings.nameAction
         nameView.visibility = if (settings.childName.isBlank()) View.GONE else View.VISIBLE
+        var gearSide = 0
+        if (top) gearSide = dp(72)
+        if (settings.remoteOn) gearSide = if (top) dp(116) else dp(48)
+        var otherEdge = 0
+        if (top) {
+            if (showUpdate) otherEdge = dp(72)
+            if (showQr) otherEdge = (if (showUpdate) dp(80) else dp(12)) + dp(48)
+        }
+        val gap = maxOf(gearSide, otherEdge, dp(12)) + dp(8)
         (nameView.layoutParams as FrameLayout.LayoutParams).apply {
-            val remoteSide = if (top) dp(124) else dp(84)
-            leftMargin = if (right) dp(84) else remoteSide
-            rightMargin = if (right) remoteSide else dp(84)
+            leftMargin = gap
+            rightMargin = gap
         }
         nameView.requestLayout()
         remoteIcon.requestLayout()
         gear.holdMs = settings.holdSeconds * 1000L
-        update.visibility = if (settings.showUpdateOnHome) View.VISIBLE else View.GONE
+        update.visibility = if (showUpdate) View.VISIBLE else View.GONE
+        qrButton.visibility = if (showQr) View.VISIBLE else View.GONE
+        qrButton.requestLayout()
         gear.requestLayout()
         update.requestLayout()
     }
