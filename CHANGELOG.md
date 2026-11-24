@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.16
+
 - Each section of the parent area now has its own colourful icon
 - Child's name: choose the space between letters and the colours (rainbow, pastel, ocean, sunset, forest, candy, or one colour)
 - Tap the name and it moves: bounce, wave, wiggle, spin, grow or wobble like jelly (or a different one each time, or nothing)
