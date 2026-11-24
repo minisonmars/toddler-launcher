@@ -43,12 +43,14 @@ class GuardService : AccessibilityService() {
         settings.guardOn && !settings.inParentMode() && !settings.isPaused() && !settings.isInstalling()
 
     override fun onServiceConnected() {
+        current = this
         settings = Settings(this)
         usage = Usage(this)
         // Just updated ourselves: the install is over, so protection is straight back on
         if (settings.installingFrom.isNotEmpty() && settings.installingFrom != Updater.installedVersion(this)) {
             settings.installingUntil = 0L
             settings.installingFrom = ""
+            settings.endParentMode()
         }
         showBlocker(isActive() && settings.blockPullDown)
         lastTickAt = SystemClock.elapsedRealtime()
@@ -126,6 +128,7 @@ class GuardService : AccessibilityService() {
     }
 
     private fun tickOnce() {
+        lastTickWall = System.currentTimeMillis()
         manageRemote()
         val now = SystemClock.elapsedRealtime()
         val elapsed = ((now - lastTickAt) / 1000).coerceIn(0, TICK_MS / 1000 + 5)
@@ -137,11 +140,16 @@ class GuardService : AccessibilityService() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         val fg = foreground ?: return
         if (!pm.isInteractive) return
-        if (fg != packageName && !settings.isAllowed(fg)) return
+        if (fg != packageName && !settings.isAllowed(fg)) {
+            // Not an allowed app but still on screen (it slipped past): send the child home
+            if (fg != "com.android.systemui" && !isKeyboard(fg) && !isPermissionDialog(fg)) goHome()
+            return
+        }
         usage.add(fg, elapsed)
         if (fg == packageName) return
 
         if (Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, fg)) {
+            stopMedia()
             goHome()
             return
         }
@@ -171,6 +179,7 @@ class GuardService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (current === this) current = null
         handler.removeCallbacksAndMessages(null)
         showRemoteBadge(false)
         try {
@@ -187,14 +196,25 @@ class GuardService : AccessibilityService() {
         val active = isActive()
         showBlocker(active && settings.blockPullDown)
         val pkg = event.packageName?.toString() ?: return
+        val cls = event.className?.toString() ?: ""
+        // Our own little windows (the pull-down strip, the remote icon, toasts) also send this event.
+        // They must not count as "the launcher is on screen", or the screen-time rules stop applying
+        // to the app that's really there. Only our real screens (activities) count.
+        if (pkg == packageName && !cls.endsWith("Activity")) return
+        if (cls.startsWith("android.widget.Toast")) return
         if (pkg != "com.android.systemui" && !isKeyboard(pkg) && !isPermissionDialog(pkg)) foreground = pkg
+        lastEventAt = System.currentTimeMillis()
         showRemoteBadge(settings.remoteConnected() && foreground != packageName)
         if (!active) return
 
         if (pkg == packageName || isKeyboard(pkg) || isPermissionDialog(pkg)) return
-        if (settings.isAllowed(pkg)) {
-            // Allowed, unless its time is used up or it's outside the allowed hours
-            if (Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, pkg)) goHome()
+        // Outside the allowed hours, at break time, or when the day's time is used up, no app is
+        // allowed: every app is treated like one that was never allowed and closed straight away.
+        val timeBlocked = Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, pkg)
+        if (settings.isAllowed(pkg) && !timeBlocked) return
+        if (timeBlocked && pkg != "com.android.systemui") {
+            stopMedia()
+            goHome()
             return
         }
 
@@ -209,6 +229,18 @@ class GuardService : AccessibilityService() {
         if (now - lastActionAt < 300) return
         lastActionAt = now
         goHome()
+    }
+
+    /** Pauses whatever is playing (a video carrying on behind the home screen). */
+    private fun stopMedia() {
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (am.isMusicActive) {
+                am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PAUSE))
+                am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PAUSE))
+            }
+        } catch (e: Exception) {
+        }
     }
 
     private fun goHome() {
@@ -306,6 +338,30 @@ class GuardService : AccessibilityService() {
     override fun onInterrupt() {}
 
     companion object {
-        private const val TICK_MS = 10_000L
+        private const val TICK_MS = 5_000L
+
+        // For the "Toddler Guard status" line in the parent app and web page
+        @Volatile var lastTickWall = 0L
+        @Volatile var lastEventAt = 0L
+        @Volatile var current: GuardService? = null
+
+        /** What the guard is doing right now, in plain words, to help when something isn't working. */
+        fun status(ctx: Context): String {
+            val s = Settings(ctx)
+            val g = current
+            val now = System.currentTimeMillis()
+            return when {
+                !Device.isGuardEnabled(ctx) -> "Off in Android's accessibility settings"
+                g == null || lastTickWall == 0L -> "Switched on, but not running yet (open the toddler screen once)"
+                !s.guardOn -> "Switched off in the parent area"
+                s.inParentMode() -> "Standing aside: parent area open (until " + hm(s.parentUntil) + ")"
+                s.isPaused() -> "Standing aside: protection paused"
+                s.isInstalling() -> "Standing aside: an update is installing (until " + hm(s.installingUntil) + ")"
+                now - lastTickWall > 60_000L -> "Not checking: last check ${(now - lastTickWall) / 1000} s ago (the phone may be freezing the app)"
+                else -> "Working: checked ${(now - lastTickWall) / 1000} s ago. On screen: " + (g.foreground ?: "unknown")
+            }
+        }
+
+        private fun hm(t: Long) = java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(t))
     }
 }

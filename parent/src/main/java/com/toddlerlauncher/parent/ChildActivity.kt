@@ -324,6 +324,7 @@ class ChildActivity : Activity() {
     private fun buildProtect(s: JSONObject) {
         schemaSection(s, "protect") { h ->
             if (h == "Toddler Guard") {
+                if (s.has("guardStatus")) rows.note("Status: " + s.optString("guardStatus"))
                 if (s.optBoolean("paused")) {
                     rows.note(s.optString("pausedText"), Ui.ORANGE)
                     rows.button("Switch protection back on") { act("/api/pause", JSONObject().put("min", 0), "Protection on") }
@@ -417,6 +418,8 @@ class ChildActivity : Activity() {
         if (s.has("defaultHome")) bits.add(if (s.optBoolean("defaultHome")) "is the home app" else "NOT the home app")
         bits.add(if (s.optBoolean("guardEnabled")) "Toddler Guard on" else "Toddler Guard OFF")
         rows.note("Toddler device: " + bits.joinToString("  ·  "))
+        if (s.has("guardStatus")) rows.note("Toddler Guard: " + s.optString("guardStatus"),
+            if (s.optString("guardStatus").startsWith("Working")) Ui.GREY else Ui.ORANGE)
         val skew = (s.optLong("clock") - System.currentTimeMillis()) / 1000
         if (s.has("clock") && kotlin.math.abs(skew) > 60) {
             rows.note("The two clocks are ${kotlin.math.abs(skew) / 60} minutes apart. Over 10 minutes and they can't talk, so check the time on both.", Ui.ORANGE)

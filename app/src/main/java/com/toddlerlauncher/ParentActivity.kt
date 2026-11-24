@@ -355,6 +355,7 @@ class ParentActivity : Activity() {
         sectionTitle(rows, "Protection and volume")
         rows.header("Toddler Guard")
         rows.switchRow("Use Toddler Guard", settings.guardOn) { on -> settings.guardOn = on; on }
+        rows.note("Status: " + GuardService.status(this))
         rows.note("Off = the guard stays installed but lets everything through, and screen-time limits stop.")
         if (settings.isPaused()) {
             val until = if (settings.pausedUntil == Long.MAX_VALUE) "until you switch it back on"

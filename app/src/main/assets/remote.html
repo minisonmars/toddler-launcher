@@ -284,10 +284,11 @@ function render() {
     protect: function () {
       add(schemaCards('protect', function (h) {
         if (h !== 'Toddler Guard') return;
-        return st.paused
+        var status = st.guardStatus ? [note('Status: ' + st.guardStatus)] : [];
+        return status.concat(st.paused
           ? [note(st.pausedText, 'warn'), el('button', { text: 'Switch protection back on', onclick: function () { act('pause', { min: 0 }, 'Protection on'); } })]
           : [el('div', {}, [el('button', { 'class': 'secondary', text: 'Pause 15 min', onclick: function () { act('pause', { min: 15 }, 'Paused'); } }),
-              el('button', { 'class': 'secondary', text: 'Pause 1 hour', onclick: function () { act('pause', { min: 60 }, 'Paused'); } })])];
+              el('button', { 'class': 'secondary', text: 'Pause 1 hour', onclick: function () { act('pause', { min: 60 }, 'Paused'); } })])]);
       }));
     },
     connect: function () {

@@ -474,6 +474,7 @@ class RemoteServer(private val ctx: Context) {
                 .format(java.util.Date(settings.pausedUntil))
         })
         o.put("guardEnabled", Device.isGuardEnabled(ctx))
+        o.put("guardStatus", GuardService.status(ctx))
         val today = LocalDate.now()
         o.put("usedToday", Usage.format(usage.appSeconds(today)))
         o.put("allowance", if (settings.dailyLimitMin > 0) Usage.format(Rules.dailyAllowanceSec(settings)) else "No limit")
