@@ -56,7 +56,9 @@ object Updater {
                 val assets = r.getJSONArray("assets")
                 for (j in 0 until assets.length()) {
                     val a = assets.getJSONObject(j)
-                    if (a.getString("name").endsWith(".apk")) {
+                    val name = a.getString("name")
+                    // Releases also carry the Toddler Parent app (for the parent's phone): skip it
+                    if (name.endsWith(".apk") && !name.startsWith("ToddlerParent")) {
                         out.add(
                             Release(
                                 r.getString("tag_name").removePrefix("v"),

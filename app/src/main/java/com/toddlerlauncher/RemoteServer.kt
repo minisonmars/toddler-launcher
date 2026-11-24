@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.toddlerlauncher.link.Link
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedInputStream
@@ -38,6 +39,13 @@ class RemoteServer(private val ctx: Context) {
     private val sessions = HashMap<String, Long>()
     private var wrong = 0
     private var lockedUntil = 0L
+
+    /** Pairings in progress: session id to (our key pair, parent's public key, expiry). */
+    private class PendingPair(val kp: java.security.KeyPair, val parentPub: String, val expires: Long)
+    private val pending = HashMap<String, PendingPair>()
+
+    /** Recently seen message ivs, so a copied message can't be sent again. */
+    private val seen = LinkedHashMap<String, Long>()
 
     val running get() = server != null
 
@@ -154,22 +162,23 @@ class RemoteServer(private val ctx: Context) {
         if (path == "/api/login" && method == "POST") {
             val now = System.currentTimeMillis()
             if (now < lockedUntil) return error(out, 429, "Too many wrong tries. Wait a few minutes.")
-            if (!settings.checkPin(req.optString("pin"))) {
-                wrong++
-                if (wrong >= 5) {
-                    wrong = 0
-                    lockedUntil = now + 5 * 60_000L
-                }
-                return error(out, 401, "Wrong PIN")
-            }
-            wrong = 0
+            if (!pinOk(req.optString("pin"))) return error(out, 401, "Wrong PIN")
             val t = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
             synchronized(sessions) { sessions[t] = now + SESSION_MS }
             settings.remoteSeenAt = now
             return json(out, JSONObject().put("token", t))
         }
 
-        // Everything else needs a logged-in session
+        // ---- The parent app: pairing, then locked messages ----
+        when (path) {
+            "/api/hello" -> return json(out, JSONObject().put("app", "toddler-launcher")
+                .put("id", settings.deviceId).put("name", deviceName()))
+            "/api/pair/start" -> return pairStart(out, req)
+            "/api/pair/finish" -> return pairFinish(out, req)
+            "/api/s" -> return secure(out, req)
+        }
+
+        // ---- The web page: everything else needs a logged-in session ----
         val now = System.currentTimeMillis()
         val ok = synchronized(sessions) {
             val exp = sessions[token]
@@ -181,40 +190,153 @@ class RemoteServer(private val ctx: Context) {
         if (!ok) return error(out, 401, "Please log in")
         settings.remoteSeenAt = now
 
-        when (path) {
-            "/api/state" -> json(out, state())
-            "/api/logout" -> {
-                synchronized(sessions) { sessions.remove(token) }
-                settings.remoteSeenAt = 0L
-                json(out, JSONObject().put("ok", true))
+        if (path == "/api/logout") {
+            synchronized(sessions) { sessions.remove(token) }
+            settings.remoteSeenAt = 0L
+            return json(out, JSONObject().put("ok", true))
+        }
+        val (code, o) = route(path, req)
+        json(out, o, code)
+    }
+
+    /** Checks the parent PIN, with 5 wrong tries locking it for 5 minutes. */
+    @Synchronized
+    private fun pinOk(pin: String): Boolean {
+        val now = System.currentTimeMillis()
+        if (now < lockedUntil) return false
+        if (!settings.checkPin(pin)) {
+            wrong++
+            if (wrong >= 5) {
+                wrong = 0
+                lockedUntil = now + 5 * 60_000L
             }
+            return false
+        }
+        wrong = 0
+        return true
+    }
+
+    /** What the parent app shows for this device. */
+    private fun deviceName(): String =
+        settings.childName.ifBlank { Build.MANUFACTURER.replaceFirstChar { it.uppercase() } + " " + Build.MODEL }
+
+    private fun pairStart(out: OutputStream, req: JSONObject) {
+        val parentPub = req.optString("pub")
+        if (parentPub.isEmpty()) return error(out, 400, "Bad request")
+        val kp = Link.newKeyPair()
+        val id = Link.randomId()
+        val now = System.currentTimeMillis()
+        synchronized(pending) {
+            pending.entries.removeAll { it.value.expires < now }
+            if (pending.size > 20) return error(out, 429, "Too many pairing attempts. Wait a minute.")
+            pending[id] = PendingPair(kp, parentPub, now + 2 * 60_000L)
+        }
+        json(out, JSONObject().put("session", id).put("pub", Link.publicKey(kp))
+            .put("id", settings.deviceId).put("name", deviceName()))
+    }
+
+    private fun pairFinish(out: OutputStream, req: JSONObject) {
+        val p = synchronized(pending) { pending.remove(req.optString("session")) }
+            ?: return error(out, 400, "Pairing timed out. Please try again.")
+        if (p.expires < System.currentTimeMillis()) return error(out, 400, "Pairing timed out. Please try again.")
+        if (System.currentTimeMillis() < lockedUntil) return error(out, 429, "Too many wrong tries. Wait a few minutes.")
+        val key = try {
+            Link.sharedKey(p.kp.private, p.parentPub, p.parentPub, Link.publicKey(p.kp))
+        } catch (e: Exception) {
+            return error(out, 400, "Bad request")
+        }
+        val inner = try {
+            JSONObject(Link.open(key, req.getJSONObject("box")))
+        } catch (e: Exception) {
+            return error(out, 400, "Bad request")
+        }
+        if (!pinOk(inner.optString("pin"))) return error(out, 401, "Wrong PIN")
+        val pairId = Link.randomId()
+        val phone = inner.optString("phone").take(40).ifBlank { "A parent's phone" }
+        Pairs.add(ctx, pairId, key, phone)
+        settings.remoteSeenAt = System.currentTimeMillis()
+        toast("Paired with $phone (check code ${Link.checkCode(key)})")
+        val reply = JSONObject().put("ok", true).put("pair", pairId).put("id", settings.deviceId).put("name", deviceName())
+        json(out, JSONObject().put("box", Link.seal(key, reply.toString())))
+    }
+
+    /** A locked message from a paired parent app: unlock, check, do it, lock the answer. */
+    private fun secure(out: OutputStream, req: JSONObject) {
+        val pairId = req.optString("pair")
+        val key = Pairs.key(ctx, pairId) ?: return error(out, 403, "Not paired")
+        val box = req.optJSONObject("box") ?: return error(out, 400, "Bad request")
+        val inner = try {
+            JSONObject(Link.open(key, box))
+        } catch (e: Exception) {
+            return error(out, 403, "Not paired")
+        }
+        val now = System.currentTimeMillis()
+        if (kotlin.math.abs(now - inner.optLong("ts")) > Link.MAX_AGE_MS) {
+            return json(out, JSONObject().put("box", Link.seal(key, JSONObject().put("code", 400)
+                .put("body", JSONObject().put("error", "The two devices' clocks are too far apart. Check the time on both.")).toString())))
+        }
+        val iv = box.optString("iv")
+        synchronized(seen) {
+            seen.entries.removeAll { it.value < now - 2 * Link.MAX_AGE_MS }
+            if (seen.containsKey(iv)) return error(out, 400, "Repeated message")
+            seen[iv] = now
+        }
+        Pairs.touch(ctx, pairId)
+        settings.remoteSeenAt = now
+        val path = inner.optString("path")
+        val body = inner.optJSONObject("body") ?: JSONObject()
+        val (code, o) = when (path) {
+            "/api/unpair" -> {
+                Pairs.remove(ctx, pairId)
+                settings.remoteSeenAt = 0L
+                200 to JSONObject().put("ok", true)
+            }
+            "/api/bye" -> {
+                settings.remoteSeenAt = 0L
+                200 to JSONObject().put("ok", true)
+            }
+            "/api/pin" -> {
+                // Changing the PIN from the app also needs the current one
+                route(path, body)
+            }
+            else -> route(path, body)
+        }
+        json(out, JSONObject().put("box", Link.seal(key, JSONObject().put("code", code).put("body", o).toString())))
+    }
+
+    /** The actions both the web page and the parent app can do. */
+    private fun route(path: String, req: JSONObject): Pair<Int, JSONObject> {
+        fun ok() = 200 to JSONObject().put("ok", true)
+        fun err(code: Int, msg: String) = code to JSONObject().put("error", msg)
+        return when (path) {
+            "/api/state" -> 200 to state()
             "/api/name" -> {
                 val name = req.optString("name").trim()
                 main.post { settings.childName = name }
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/set" -> {
                 val key = req.optString("key")
-                val item = SCHEMA.firstOrNull { it.key == key } ?: return error(out, 400, "Unknown setting")
+                val item = SCHEMA.firstOrNull { it.key == key } ?: return err(400, "Unknown setting")
                 val v: Any = when (item.type) {
                     "bool" -> req.optBoolean("value")
-                    "int", "time" -> req.optString("value").toIntOrNull() ?: return error(out, 400, "Bad value")
+                    "int", "time" -> req.optString("value").toIntOrNull() ?: return err(400, "Bad value")
                     else -> req.optString("value")
                 }
                 main.post { settings.putRaw(key, v) }
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/bonus" -> {
                 val min = req.optInt("min", 15).coerceIn(1, 240)
                 main.post { settings.addBonus(min) }
                 toast("A parent gave $min more minutes")
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/lock" -> {
                 val on = req.optBoolean("on")
                 main.post { settings.lockedNow = on }
                 toast(if (on) "Break time" else "Break time is over")
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/pause" -> {
                 // minutes: 0 = protection back on, -1 = until switched back on
@@ -226,7 +348,7 @@ class RemoteServer(private val ctx: Context) {
                         else -> { settings.pausedUntil = System.currentTimeMillis() + min * 60_000L }
                     }
                 }
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/app" -> {
                 val pkg = req.optString("pkg")
@@ -239,29 +361,23 @@ class RemoteServer(private val ctx: Context) {
                     }
                     if (req.has("limit")) settings.setAppLimit(pkg, req.optInt("limit"))
                 }
-                json(out, JSONObject().put("ok", true))
+                ok()
             }
             "/api/pin" -> {
                 val cur = req.optString("current")
                 val new = req.optString("new")
                 when {
-                    !settings.checkPin(cur) -> error(out, 400, "The current PIN is wrong")
-                    new.length !in 4..8 || new.any { !it.isDigit() } -> error(out, 400, "The new PIN needs 4 to 8 digits")
+                    !pinOk(cur) -> err(400, "The current PIN is wrong")
+                    new.length !in 4..8 || new.any { !it.isDigit() } -> err(400, "The new PIN needs 4 to 8 digits")
                     else -> {
                         settings.setPin(new)
-                        json(out, JSONObject().put("ok", true))
+                        ok()
                     }
                 }
             }
-            "/api/wifi/add" -> {
-                val msg = WifiNetworks.add(ctx, req.optString("ssid"), req.optString("password"))
-                json(out, JSONObject().put("message", msg))
-            }
-            "/api/wifi/remove" -> {
-                val msg = WifiNetworks.remove(ctx, req.optString("ssid"))
-                json(out, JSONObject().put("message", msg))
-            }
-            else -> error(out, 404, "Unknown request")
+            "/api/wifi/add" -> 200 to JSONObject().put("message", WifiNetworks.add(ctx, req.optString("ssid"), req.optString("password")))
+            "/api/wifi/remove" -> 200 to JSONObject().put("message", WifiNetworks.remove(ctx, req.optString("ssid")))
+            else -> err(404, "Unknown request")
         }
     }
 
@@ -277,6 +393,8 @@ class RemoteServer(private val ctx: Context) {
         o.put("device", Build.MANUFACTURER + " " + Build.MODEL)
         o.put("defaultPin", settings.isDefaultPin())
         o.put("childName", settings.childName)
+        o.put("id", settings.deviceId)
+        o.put("name", deviceName())
 
         // Status
         val block = Rules.block(settings, usage)
@@ -400,7 +518,7 @@ class RemoteServer(private val ctx: Context) {
             Item("keepScreenOn", "Keep the screen on", "Look and layout", "bool", YES_NO) { it.keepScreenOn },
             Item("gearCorner", "Parent button corner", "Parent button", "str", Settings.CORNERS) { it.gearCorner },
             Item("holdSeconds", "Hold the parent button for", "Parent button", "int", Settings.HOLD_TIMES) { it.holdSeconds },
-            Item("showQrOnHome", "QR code button on the toddler screen", "Parent button", "bool", YES_NO) { it.showQrOnHome },
+            Item("showQrOnHome", "Connect button (QR code) on the toddler screen", "Parent button", "bool", YES_NO) { it.showQrOnHome },
             Item("showUpdateOnHome", "Update button on the toddler screen", "Parent button", "bool", YES_NO) { it.showUpdateOnHome },
         )
 

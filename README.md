@@ -50,6 +50,15 @@ pattern-protected parent area.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
     or until you open Toddler Launcher from its icon), change the home app,
     uninstall. As the home app, Toddler Launcher starts by itself after a restart.
+- **Toddler Parent app** (`ToddlerParent-v….apk` in each release, for the parent's
+  phone, Android 10+): finds the toddler device on the same Wi-Fi by itself (mDNS),
+  or by scanning its QR code, or by typing its address. Pair once with the parent
+  PIN; after that the two share a secret key (worked out with elliptic-curve
+  Diffie-Hellman, never sent) and every message is locked with it (AES-GCM), with
+  old messages refused. It does everything the remote web page does. No Wi-Fi?
+  The toddler device's "Connect directly" makes a private local-only hotspot and
+  shows a QR code; the parent app scans it and joins (the phone keeps its mobile
+  data). Paired phones are listed, and can be removed, in Parent area > Remote access.
 - **Setup checklist** (shown on first start, and from the parent area): ticks
   each lock-down step as it's done.
 
@@ -109,7 +118,7 @@ kept in step with this file, and the in-app updater shows them.
 Builds run only in GitHub Actions (`.github/workflows/build.yml`) on every push to
 `main`: JDK 17, Gradle 8.7, Android Gradle Plugin 8.5.2, Kotlin 1.9.24,
 compileSdk/targetSdk 34, minSdk 26 (Android 8.0). Each successful build publishes
-a GitHub Release `v0.1.<run number>` with the APK. A fixed debug keystore
+a GitHub Release `v0.1.<run number>` with both APKs (launcher and parent app). A fixed debug keystore
 (`app/debug.keystore`) signs every build so new versions install over old ones.
 Builds are release builds (not debuggable), which Google Play Protect treats less
 suspiciously.
@@ -134,7 +143,13 @@ app/src/main/java/com/toddlerlauncher/
   Catalog.kt            recommended apps list (catalog.json)
   RemoteServer.kt       remote parent web server, API and Wi-Fi suggestions
   RemoteService.kt      foreground service that keeps the remote page running
+  Pairs.kt              parent phones paired with this device
+  Connect.kt            QR codes for the parent app, "Connect directly"
+  DirectHotspot.kt      the private hotspot for "Connect directly"
 app/src/main/assets/remote.html   the remote parent web page
+shared/java/.../link/Link.kt      pairing and message locking, used by both apps
+parent/                 the Toddler Parent app (HomeActivity, AddActivity, ChildActivity,
+                        ScanActivity, Finder (mDNS), Direct (joining the hotspot), Net, Store)
   InstallReceiver.kt    install result
   Icons.kt              icons drawn in code, hold-to-open button, page dots
   Ui.kt                 colours and row builders for settings screens

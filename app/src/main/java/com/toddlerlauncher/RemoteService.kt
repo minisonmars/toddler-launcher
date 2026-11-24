@@ -7,7 +7,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
+import com.toddlerlauncher.link.Link
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -23,6 +26,7 @@ class RemoteService : Service() {
     private var server: RemoteServer? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var announcer: NsdManager.RegistrationListener? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,6 +39,7 @@ class RemoteService : Service() {
         if (server == null) server = RemoteServer(this)
         server?.start()
         holdLocks()
+        announce()
         return START_STICKY
     }
 
@@ -49,7 +54,7 @@ class RemoteService : Service() {
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("Remote access is on")
-            .setContentText("Open the address from Toddler Launcher's parent area on your phone")
+            .setContentText("Use the Toddler Parent app, or the address in the parent area")
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {
@@ -79,7 +84,36 @@ class RemoteService : Service() {
         }
     }
 
+    /** Tells parent apps on the same network that this device is here (mDNS), so they find it by themselves. */
+    private fun announce() {
+        if (announcer != null) return
+        val settings = Settings(this)
+        val info = NsdServiceInfo().apply {
+            serviceName = settings.childName.ifBlank { "Toddler Launcher" }.take(40)
+            serviceType = Link.SERVICE_TYPE
+            port = Link.PORT
+            setAttribute("id", settings.deviceId)
+        }
+        val l = object : NsdManager.RegistrationListener {
+            override fun onServiceRegistered(info: NsdServiceInfo) {}
+            override fun onRegistrationFailed(info: NsdServiceInfo, code: Int) { announcer = null }
+            override fun onServiceUnregistered(info: NsdServiceInfo) {}
+            override fun onUnregistrationFailed(info: NsdServiceInfo, code: Int) {}
+        }
+        try {
+            getSystemService(NsdManager::class.java).registerService(info, NsdManager.PROTOCOL_DNS_SD, l)
+            announcer = l
+        } catch (e: Exception) {
+        }
+    }
+
     override fun onDestroy() {
+        try {
+            announcer?.let { getSystemService(NsdManager::class.java).unregisterService(it) }
+        } catch (e: Exception) {
+        }
+        announcer = null
+        DirectHotspot.stop()
         server?.stop()
         server = null
         try {

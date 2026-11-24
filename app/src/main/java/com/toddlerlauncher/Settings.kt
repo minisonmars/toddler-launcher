@@ -79,6 +79,16 @@ class Settings(ctx: Context) {
         set(v) = putI("volumeCap", v)
 
     // ---------- Remote access (same Wi-Fi) ----------
+    /** A random id for this device, so a paired parent app can find it again on any network. */
+    val deviceId: String
+        get() {
+            val v = getS("deviceId", "")
+            if (v.isNotEmpty()) return v
+            val id = com.toddlerlauncher.link.Link.randomId(8)
+            putS("deviceId", id)
+            return id
+        }
+
     var remoteOn: Boolean
         get() = getB("remoteOn", false)
         set(v) = putB("remoteOn", v)
@@ -316,7 +326,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome")) continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome") || k == "deviceId") continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

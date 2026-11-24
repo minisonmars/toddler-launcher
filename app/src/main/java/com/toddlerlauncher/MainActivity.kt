@@ -215,6 +215,11 @@ class MainActivity : Activity() {
         setContentView(root)
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        Connect.onPermissionResult(this, requestCode, grantResults)
+    }
+
     override fun onResume() {
         super.onResume()
         // Back on the toddler screen, so the parent area is over and the guard is on duty again
@@ -359,6 +364,10 @@ class MainActivity : Activity() {
 
     /** Shows the remote parent page's address as a QR code, to scan with a parent's phone. */
     private fun showRemoteQr() {
+        if (!settings.remoteOn) {
+            settings.remoteOn = true
+            RemoteService.sync(this)
+        }
         val addresses = RemoteServer.addresses()
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -373,7 +382,7 @@ class MainActivity : Activity() {
         }
         val size = minOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels) - dp(120)
         for (a in addresses) {
-            val url = "http://$a:${RemoteServer.PORT}"
+            val url = Connect.addressUrl(settings, a)
             Qr.bitmap(url, size.coerceAtMost(dp(300)))?.let { bmp ->
                 col.addView(android.widget.ImageView(this).apply {
                     setImageBitmap(bmp)
@@ -381,17 +390,19 @@ class MainActivity : Activity() {
                 })
             }
             col.addView(TextView(this).apply {
-                text = url
+                text = "http://$a:${RemoteServer.PORT}"
                 textSize = 18f
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, dp(12))
             })
         }
         android.app.AlertDialog.Builder(this)
-            .setTitle("Remote parent access")
-            .setMessage("Scan with your phone's camera (same Wi-Fi), then log in with the parent PIN.")
+            .setTitle("Connect a parent's phone")
+            .setMessage("On the same Wi-Fi, the Toddler Parent app finds this device by itself. Or scan this code " +
+                "with the app (or your phone's camera for the web page), then enter the parent PIN.")
             .setView(android.widget.ScrollView(this).apply { addView(col) })
             .setPositiveButton("Close", null)
+            .setNeutralButton("No Wi-Fi? Connect directly") { _, _ -> Connect.direct(this) }
             .show()
     }
 
@@ -406,7 +417,7 @@ class MainActivity : Activity() {
         }
         // The update button sits in the other corner along the same edge, the QR button next to it
         val showUpdate = settings.showUpdateOnHome
-        val showQr = settings.remoteOn && settings.showQrOnHome
+        val showQr = settings.showQrOnHome
         val otherSide = if (right) Gravity.START else Gravity.END
         (update.layoutParams as FrameLayout.LayoutParams).apply {
             gravity = vertical or otherSide

@@ -37,6 +37,11 @@ android {
         }
     }
 
+    // Code shared with the Toddler Parent app (pairing and locked messages)
+    sourceSets {
+        getByName("main").java.srcDir("../shared/java")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

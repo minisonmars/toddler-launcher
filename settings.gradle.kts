@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ToddlerLauncher"
 include(":app")
+include(":parent")

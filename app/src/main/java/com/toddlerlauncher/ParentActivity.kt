@@ -364,7 +364,7 @@ class ParentActivity : Activity() {
         rows.choiceRow("Hold for", Settings.HOLD_TIMES, settings.holdSeconds.toString()) {
             settings.holdSeconds = it.toInt()
         }
-        rows.switchRow("Show the QR code button on the toddler screen (while remote access is on)", settings.showQrOnHome) { on ->
+        rows.switchRow("Show the \"connect a parent's phone\" button (QR code) on the toddler screen", settings.showQrOnHome) { on ->
             settings.showQrOnHome = on
             on
         }
@@ -474,8 +474,8 @@ class ParentActivity : Activity() {
         sectionTitle(rows, "Remote access")
         rows.note(
             "Change every setting, allowed apps and limits, give extra time, start break time, see the usage report " +
-                "and add Wi-Fi networks from your own phone's browser. Both devices need to be on the same Wi-Fi " +
-                "(or your phone's hotspot). Log in with your parent PIN."
+                "and add Wi-Fi networks from your own phone, with the Toddler Parent app (or its browser). " +
+                "On the same Wi-Fi the app finds this device by itself; pair it once with your parent PIN."
         )
         rows.switchRow("Allow remote access", settings.remoteOn) { on ->
             settings.remoteOn = on
@@ -500,22 +500,37 @@ class ParentActivity : Activity() {
                 })
                 // QR code of the address: scan it with your phone's camera instead of typing
                 val size = minOf(resources.displayMetrics.widthPixels - dp(64), dp(300))
-                Qr.bitmap("http://$a:${RemoteServer.PORT}", size)?.let { bmp ->
+                Qr.bitmap(Connect.addressUrl(settings, a), size)?.let { bmp ->
                     rows.col.addView(android.widget.ImageView(this).apply {
                         setImageBitmap(bmp)
                         contentDescription = "QR code for http://$a:${RemoteServer.PORT}"
                     }, LinearLayout.LayoutParams(size, size).apply { setMargins(0, dp(8), 0, dp(12)) })
                 }
             }
-            rows.note("Scan the QR code with your phone's camera, or type the address into your browser exactly as shown (http, not https). While it is on, a quiet notification keeps it running even when your child is in another app.")
+            rows.note("Scan the QR code with the Toddler Parent app (or your phone's camera for the web page), or type the address into your browser exactly as shown (http, not https). While it is on, a quiet notification keeps it running even when your child is in another app.")
             if (settings.isDefaultPin()) rows.note("You're still using the default PIN ${Settings.DEFAULT_PIN}. Change it first, as anyone on the same Wi-Fi could try it.").setTextColor(Ui.RED)
             rows.note("While you're connected, a small phone icon shows at the top of the screen, over your child's apps too.")
             rows.header("No Wi-Fi?")
             rows.note(
-                "Turn on your phone's hotspot and connect this device to it (Wi-Fi switch in \"Wi-Fi, mobile data " +
-                    "and Bluetooth\"). Then open the address above on your phone. A browser can't use Bluetooth " +
-                    "or Wi-Fi Direct for this."
+                "This device can make its own private Wi-Fi for the Toddler Parent app to join (no internet on it; " +
+                    "your phone keeps its mobile data). Or turn on your phone's hotspot and connect this device to it."
             )
+            rows.button(if (DirectHotspot.on) "Show the direct connection QR code" else "Connect directly") { Connect.direct(this) }
+            if (DirectHotspot.on) rows.button("Stop the private Wi-Fi") { DirectHotspot.stop(); build() }
+
+            rows.header("Paired phones")
+            val phones = Pairs.list(this)
+            if (phones.isEmpty()) rows.note("None yet. Add this device in the Toddler Parent app on your phone.")
+            val fmt = java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.UK)
+            for (ph in phones) {
+                rows.menuItem(ph.name, "Paired ${fmt.format(java.util.Date(ph.pairedAt))}, last connected ${fmt.format(java.util.Date(ph.lastSeen))}. Tap to remove.",
+                    icon = Icon.DEVICE, colour = Ui.PURPLE) {
+                    AlertDialog.Builder(this).setTitle("Remove ${ph.name}?")
+                        .setMessage("That phone won't be able to connect until it's paired again with the PIN.")
+                        .setPositiveButton("Remove") { _, _ -> Pairs.remove(this, ph.id); build() }
+                        .setNegativeButton("Cancel", null).show()
+                }
+            }
             rows.button("Refresh the address") { build() }
         }
     }
@@ -719,6 +734,11 @@ class ParentActivity : Activity() {
     }
 
     @Deprecated("Framework callback")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        Connect.onPermissionResult(this, requestCode, grantResults)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 7 && !Device.isDefaultHome(this)) settings.returnTo = "" // home app not chosen

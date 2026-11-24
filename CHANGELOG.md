@@ -5,7 +5,11 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- New Toddler Parent app for your own phone (ToddlerParent APK in each release): finds the toddler device on the same Wi-Fi by itself, pairs once with the parent PIN, then changes settings, apps and limits, gives extra time, starts break time, shows the usage report and adds Wi-Fi networks
+- Pairing uses a secret key that only the two devices know; every message after that is locked with it, and the PIN isn't sent again
+- "No Wi-Fi? Connect directly": the toddler device makes its own private Wi-Fi and shows a QR code for the parent app to scan and join
+- The QR button on the toddler screen is now a "connect a parent's phone" button, shown all the time for testing (switch it off under Parent code and button)
+- Parent area > Remote access lists paired phones, so you can remove one
 
 ## v0.1.19
 
