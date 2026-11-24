@@ -26,9 +26,12 @@ def write(head, sections):
 
 
 def body_of(sections, title):
+    """The section's bullets. The "(nothing yet)" placeholder is dropped once real bullets are there."""
     for t, b in sections:
         if t == title:
-            return b
+            lines = [l for l in b.splitlines() if l.strip() != EMPTY]
+            cleaned = "\n".join(lines).strip()
+            return cleaned if cleaned else (EMPTY if t == "Next" else "")
     return ""
 
 
