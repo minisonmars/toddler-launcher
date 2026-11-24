@@ -14,6 +14,19 @@ class LinkError(msg: String, val notPaired: Boolean = false) : Exception(msg)
 /** Talking to Toddler Launcher. All of these block, so call them off the main thread. */
 object Net {
 
+    /** How the last request to a child got through, for the connection details. */
+    class ConnInfo(val host: String, val port: Int, val via: String, val ms: Long, val at: Long)
+    val lastConn = java.util.concurrent.ConcurrentHashMap<String, ConnInfo>()
+
+    /** This phone's own addresses on its networks (Wi-Fi, hotspot). */
+    fun myAddresses(): List<String> = try {
+        java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { ni -> ni.inetAddresses.toList().filterIsInstance<java.net.Inet4Address>().map { "${it.hostAddress} (${ni.name})" } }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
     /** Plain request. Returns (status code, JSON reply). */
     fun post(host: String, port: Int, path: String, body: JSONObject, timeoutMs: Int = 5000): Pair<Int, JSONObject> {
         val url = URL("http://$host:$port$path")
@@ -85,12 +98,19 @@ object Net {
         if (hosts.isEmpty()) throw LinkError("Can't find ${child.name} on this network.")
         for (h in hosts) {
             val port = Finder.found[child.id]?.takeIf { it.host == h }?.port ?: child.port
+            val started = android.os.SystemClock.elapsedRealtime()
             try {
                 val inner = JSONObject().put("path", path).put("body", body).put("ts", System.currentTimeMillis())
                 val (code, r) = post(h, port, "/api/s", JSONObject().put("pair", child.pair).put("box", Link.seal(child.key, inner.toString())))
                 if (code == 403) throw LinkError("${child.name} doesn't know this phone any more. Remove it and pair again.", notPaired = true)
                 if (code != 200) throw LinkError(r.optString("error", "Error $code"))
                 val reply = JSONObject(Link.open(child.key, r.getJSONObject("box")))
+                val via = when {
+                    Direct.isOnHotspot(h) -> "direct"
+                    Finder.found[child.id]?.host == h -> "found"
+                    else -> "saved"
+                }
+                lastConn[child.id] = ConnInfo(h, port, via, android.os.SystemClock.elapsedRealtime() - started, System.currentTimeMillis())
                 if (h != child.host || port != child.port) {
                     child.host = h
                     child.port = port

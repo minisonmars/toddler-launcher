@@ -121,6 +121,7 @@ class ChildActivity : Activity() {
             return
         }
         if (problem.isNotEmpty()) rows.note(problem, Ui.RED)
+        connection(s)
 
         // ---- Now ----
         rows.header("Now")
@@ -225,6 +226,39 @@ class ChildActivity : Activity() {
         rows.header("Parent PIN")
         rows.button("Change the parent PIN") { askPin() }
         footer()
+    }
+
+    /** How the two are connected, and other details that help when something isn't working. */
+    private fun connection(s: JSONObject) {
+        rows.header("Connection")
+        val c = Net.lastConn[child.id]
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.UK)
+        if (c != null) {
+            val how = when (c.via) {
+                "direct" -> "Directly, over its private Wi-Fi \"${Direct.ssid}\""
+                "found" -> "Same Wi-Fi (found automatically)"
+                else -> "Same Wi-Fi (last address that worked)"
+            }
+            rows.note(how, Ui.GREEN, 16f)
+            rows.note("Address ${c.host}:${c.port}  ·  answered in ${c.ms} ms  ·  updated ${time.format(java.util.Date(c.at))}")
+        }
+        rows.note("Locked with this phone's own key (AES-256). Check code ${com.toddlerlauncher.link.Link.checkCode(child.key)}")
+        val phone = Net.myAddresses()
+        if (phone.isNotEmpty()) rows.note("This phone: " + phone.joinToString(", "))
+        val bits = mutableListOf<String>()
+        bits.add("Android ${s.optString("android", "?")}")
+        if (s.has("battery")) bits.add("battery ${s.optInt("battery")}%" + if (s.optBoolean("charging")) " (charging)" else "")
+        val addrs = s.optJSONArray("addresses")
+        if (addrs != null && addrs.length() > 0) bits.add("addresses " + (0 until addrs.length()).joinToString(", ") { addrs.optString(it) })
+        if (s.optBoolean("direct")) bits.add("private Wi-Fi on (\"${s.optString("directSsid")}\")")
+        bits.add("${s.optInt("pairedPhones")} paired phone" + if (s.optInt("pairedPhones") == 1) "" else "s")
+        if (s.has("defaultHome")) bits.add(if (s.optBoolean("defaultHome")) "is the home app" else "NOT the home app")
+        bits.add(if (s.optBoolean("guardEnabled")) "Toddler Guard on" else "Toddler Guard OFF")
+        rows.note("Toddler device: " + bits.joinToString("  ·  "))
+        val skew = (s.optLong("clock") - System.currentTimeMillis()) / 1000
+        if (s.has("clock") && kotlin.math.abs(skew) > 60) {
+            rows.note("The two clocks are ${kotlin.math.abs(skew) / 60} minutes apart. Over 10 minutes and they can't talk, so check the time on both.", Ui.ORANGE)
+        }
     }
 
     private fun footer() {

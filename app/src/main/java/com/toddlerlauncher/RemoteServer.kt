@@ -391,6 +391,20 @@ class RemoteServer(private val ctx: Context) {
         val o = JSONObject()
         o.put("version", Updater.installedVersion(ctx))
         o.put("device", Build.MANUFACTURER + " " + Build.MODEL)
+        // Details for the parent app's connection box
+        o.put("android", Build.VERSION.RELEASE)
+        o.put("addresses", JSONArray(addresses()))
+        o.put("direct", DirectHotspot.on)
+        if (DirectHotspot.on) o.put("directSsid", DirectHotspot.ssid)
+        o.put("pairedPhones", Pairs.list(ctx).size)
+        o.put("defaultHome", Device.isDefaultHome(ctx))
+        try {
+            val bm = ctx.getSystemService(android.os.BatteryManager::class.java)
+            o.put("battery", bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY))
+            o.put("charging", bm.isCharging)
+        } catch (e: Exception) {
+        }
+        o.put("clock", System.currentTimeMillis())
         o.put("defaultPin", settings.isDefaultPin())
         o.put("childName", settings.childName)
         o.put("id", settings.deviceId)
