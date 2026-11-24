@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.22
+
 - Parent app: a Connection box at the top of each child's screen shows how you're connected (same Wi-Fi or directly), the address and port, how quickly it answered, the check code, this phone's addresses, and the toddler device's Android version, battery, addresses, paired phones, home app and Toddler Guard status
 
 ## v0.1.21
