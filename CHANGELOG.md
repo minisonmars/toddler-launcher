@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.17
+
 - New QR code button on the toddler screen, next to the update button, while remote access is on: tap it to show the code for your phone to scan (it can be hidden under Parent code and button)
 - The child's name is now centred on the screen (it sat a little to one side before)
 
