@@ -12,7 +12,8 @@ import android.view.MotionEvent
 import android.view.View
 import kotlin.math.min
 
-enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS, REMOTE }
+enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS, REMOTE,
+    CHECKLIST, GRID, STAR, CLOCK, CHART, PALETTE, LOCK, SHIELD, WIFI, DEVICE }
 
 /**
  * A round button with an icon drawn in code, so every icon has the same size,
@@ -145,6 +146,119 @@ open class RoundIconButton(context: Context, icon: Icon, fill: Int) : View(conte
                 canvas.drawArc(rect, -60f, 60f, false, paint)
                 rect.set(0.42f, 0.14f, 0.94f, 0.66f)
                 canvas.drawArc(rect, -60f, 60f, false, paint)
+            }
+
+            Icon.CHECKLIST -> {
+                strokeStyle(0.06f)
+                rect.set(0.26f, 0.20f, 0.74f, 0.82f)
+                canvas.drawRoundRect(rect, 0.05f, 0.05f, paint)
+                for (k in 0 until 3) {
+                    val y = 0.36f + k * 0.15f
+                    path.reset()
+                    path.moveTo(0.33f, y)
+                    path.lineTo(0.37f, y + 0.04f)
+                    path.lineTo(0.44f, y - 0.04f)
+                    canvas.drawPath(path, paint)
+                    canvas.drawLine(0.50f, y, 0.66f, y, paint)
+                }
+            }
+
+            Icon.GRID -> {
+                fillStyle()
+                for (r in 0 until 2) for (c in 0 until 2) {
+                    rect.set(0.24f + c * 0.28f, 0.24f + r * 0.28f, 0.48f + c * 0.28f, 0.48f + r * 0.28f)
+                    canvas.drawRoundRect(rect, 0.05f, 0.05f, paint)
+                }
+            }
+
+            Icon.STAR -> {
+                fillStyle()
+                path.reset()
+                for (k in 0 until 10) {
+                    val r = if (k % 2 == 0) 0.30f else 0.13f
+                    val a = Math.toRadians((-90 + k * 36).toDouble())
+                    val x = 0.5f + r * kotlin.math.cos(a).toFloat()
+                    val y = 0.52f + r * kotlin.math.sin(a).toFloat()
+                    if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                path.close()
+                canvas.drawPath(path, paint)
+            }
+
+            Icon.CLOCK -> {
+                strokeStyle(0.07f)
+                canvas.drawCircle(0.5f, 0.5f, 0.27f, paint)
+                canvas.drawLine(0.5f, 0.5f, 0.5f, 0.33f, paint)
+                canvas.drawLine(0.5f, 0.5f, 0.62f, 0.57f, paint)
+            }
+
+            Icon.CHART -> {
+                fillStyle()
+                rect.set(0.24f, 0.52f, 0.36f, 0.76f); canvas.drawRoundRect(rect, 0.02f, 0.02f, paint)
+                rect.set(0.44f, 0.30f, 0.56f, 0.76f); canvas.drawRoundRect(rect, 0.02f, 0.02f, paint)
+                rect.set(0.64f, 0.42f, 0.76f, 0.76f); canvas.drawRoundRect(rect, 0.02f, 0.02f, paint)
+            }
+
+            Icon.PALETTE -> {
+                fillStyle()
+                canvas.drawCircle(0.5f, 0.5f, 0.28f, paint)
+                paint.color = fill
+                canvas.drawCircle(0.60f, 0.64f, 0.07f, paint)
+                paint.color = Color.rgb(255, 80, 80); canvas.drawCircle(0.38f, 0.40f, 0.05f, paint)
+                paint.color = Color.rgb(255, 200, 0); canvas.drawCircle(0.52f, 0.33f, 0.05f, paint)
+                paint.color = Color.rgb(60, 150, 255); canvas.drawCircle(0.66f, 0.42f, 0.05f, paint)
+                paint.color = Color.rgb(60, 190, 90); canvas.drawCircle(0.37f, 0.57f, 0.05f, paint)
+            }
+
+            Icon.LOCK -> {
+                strokeStyle(0.07f)
+                rect.set(0.36f, 0.22f, 0.64f, 0.56f)
+                canvas.drawArc(rect, 180f, 180f, false, paint)
+                canvas.drawLine(0.36f, 0.39f, 0.36f, 0.47f, paint)
+                canvas.drawLine(0.64f, 0.39f, 0.64f, 0.47f, paint)
+                fillStyle()
+                rect.set(0.27f, 0.45f, 0.73f, 0.78f)
+                canvas.drawRoundRect(rect, 0.05f, 0.05f, paint)
+                paint.color = fill
+                canvas.drawCircle(0.5f, 0.59f, 0.045f, paint)
+            }
+
+            Icon.SHIELD -> {
+                fillStyle()
+                path.reset()
+                path.moveTo(0.5f, 0.20f)
+                path.lineTo(0.75f, 0.30f)
+                path.cubicTo(0.75f, 0.55f, 0.66f, 0.70f, 0.5f, 0.80f)
+                path.cubicTo(0.34f, 0.70f, 0.25f, 0.55f, 0.25f, 0.30f)
+                path.close()
+                canvas.drawPath(path, paint)
+                paint.color = fill
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 0.06f
+                path.reset()
+                path.moveTo(0.40f, 0.50f)
+                path.lineTo(0.48f, 0.58f)
+                path.lineTo(0.62f, 0.42f)
+                canvas.drawPath(path, paint)
+            }
+
+            Icon.WIFI -> {
+                strokeStyle(0.065f)
+                for (k in 1..3) {
+                    val r = 0.10f + k * 0.10f
+                    rect.set(0.5f - r, 0.70f - r, 0.5f + r, 0.70f + r)
+                    canvas.drawArc(rect, 225f, 90f, false, paint)
+                }
+                fillStyle()
+                canvas.drawCircle(0.5f, 0.70f, 0.05f, paint)
+            }
+
+            Icon.DEVICE -> {
+                strokeStyle(0.065f)
+                rect.set(0.33f, 0.18f, 0.67f, 0.82f)
+                canvas.drawRoundRect(rect, 0.06f, 0.06f, paint)
+                fillStyle()
+                canvas.drawCircle(0.5f, 0.73f, 0.035f, paint)
             }
 
             Icon.MOON -> {
@@ -286,8 +400,8 @@ class PageDots(context: Context) : View(context) {
 }
 
 /**
- * The child's name in big, chunky letters, each one a different bright colour
- * with a white outline. Uses the phone's playful "casual" font where it has one.
+ * The child's name in big colourful letters. Tapping it makes the letters
+ * bounce, wave, wiggle, spin, grow or wobble.
  */
 class ChildNameView(context: Context) : View(context) {
 
@@ -297,51 +411,131 @@ class ChildNameView(context: Context) : View(context) {
             invalidate()
         }
 
+    /** Extra space between letters, as a fraction of the letter size. */
+    var spacing: Float = 0f
+        set(v) {
+            field = v
+            invalidate()
+        }
+
+    var colours: IntArray = Settings.nameColourSet("rainbow")
+        set(v) {
+            field = v
+            invalidate()
+        }
+
+    /** A key from Settings.NAME_ACTIONS. */
+    var action: String = "random"
+
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = android.graphics.Typeface.create("casual", android.graphics.Typeface.BOLD)
-        textAlign = Paint.Align.LEFT
+        textAlign = Paint.Align.CENTER
     }
     private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = fill.typeface
+        textAlign = Paint.Align.CENTER
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
-        color = Color.WHITE
         setShadowLayer(8f, 0f, 3f, Color.argb(140, 0, 0, 0))
     }
 
-    private val colours = intArrayOf(
-        Color.rgb(255, 70, 70), Color.rgb(255, 150, 30), Color.rgb(255, 205, 0),
-        Color.rgb(60, 190, 90), Color.rgb(40, 150, 255), Color.rgb(150, 90, 255), Color.rgb(255, 90, 180)
-    )
+    private val moves = listOf("bounce", "wave", "wiggle", "spin", "grow", "jelly")
+    private var playing = ""
+    private var startedAt = 0L
+    private var lastRandom = ""
+
+    private val stagger = 70L
+    private fun duration(): Long = when (playing) {
+        "spin" -> 900L
+        "wiggle", "jelly" -> 1000L
+        else -> 1100L
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (name.isBlank() || action == "off") return false
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            playing = if (action == "random") moves.filter { it != lastRandom }.random() else action
+            lastRandom = playing
+            startedAt = SystemClock.uptimeMillis()
+            performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+            postInvalidateOnAnimation()
+        }
+        return true
+    }
 
     override fun onDraw(canvas: Canvas) {
         val text = name.trim()
         if (text.isEmpty()) return
-        // Biggest size that fits the space
-        var size = height * 0.78f
+        // Leave room above and below so jumping and growing letters aren't cut off
+        var size = height * 0.6f
         fill.textSize = size
-        val maxW = width * 0.98f
-        val w = fill.measureText(text)
+        fun totalWidth(): Float {
+            val gap = fill.textSize * spacing
+            return text.sumOf { fill.measureText(it.toString()).toDouble() }.toFloat() + gap * (text.length - 1)
+        }
+        val maxW = width * 0.94f
+        val w = totalWidth()
         if (w > maxW) {
             size *= maxW / w
             fill.textSize = size
         }
         outline.textSize = size
         outline.strokeWidth = size * 0.14f
-        val total = fill.measureText(text)
-        var x = (width - total) / 2f
-        val y = height / 2f - (fill.descent() + fill.ascent()) / 2f
+        outline.color = if (colours.size == 1 && colours[0] == Color.WHITE) Color.rgb(60, 60, 90) else Color.WHITE
+        val gap = size * spacing
+        var x = (width - totalWidth()) / 2f
+        val baseY = height / 2f - (fill.descent() + fill.ascent()) / 2f
+        val midY = height / 2f
+
+        val now = SystemClock.uptimeMillis()
+        val elapsed = now - startedAt
+        val dur = duration()
+        val running = playing.isNotEmpty() && elapsed < dur + stagger * text.length
+
         var colourIndex = 0
-        for (ch in text) {
+        for ((i, ch) in text.withIndex()) {
             val s = ch.toString()
-            val bounce = if (colourIndex % 2 == 0) -size * 0.04f else size * 0.04f
-            canvas.drawText(s, x, y + bounce, outline)
+            val cw = fill.measureText(s)
+            val cx = x + cw / 2f
+            // Little up-and-down resting pattern
+            var dy = if (i % 2 == 0) -size * 0.04f else size * 0.04f
+            var rot = 0f
+            var sx = 1f
+            var sy = 1f
+            if (running) {
+                val delay = if (playing == "wave" || playing == "spin") stagger * i else 0L
+                val t = ((elapsed - delay).toFloat() / dur).coerceIn(0f, 1f)
+                val pi = Math.PI.toFloat()
+                when (playing) {
+                    "bounce" -> { // three hops, each lower than the last
+                        val hop = kotlin.math.abs(kotlin.math.sin(t * 3 * pi))
+                        dy -= size * 0.3f * hop * (1f - t)
+                    }
+                    "wave" -> dy -= size * 0.3f * kotlin.math.sin(t * pi)
+                    "wiggle" -> rot = 20f * kotlin.math.sin(t * 6 * pi) * (1f - t) * (if (i % 2 == 0) 1f else -1f)
+                    "spin" -> rot = 360f * (t * t * (3 - 2 * t))
+                    "grow" -> { val g = 1f + 0.4f * kotlin.math.sin(t * pi); sx = g; sy = g }
+                    "jelly" -> {
+                        val k = 0.3f * kotlin.math.sin(t * 5 * pi) * (1f - t)
+                        sx = 1f + k
+                        sy = 1f - k
+                    }
+                }
+            }
+            canvas.save()
+            canvas.translate(0f, dy)
+            if (rot != 0f) canvas.rotate(rot, cx, midY)
+            if (sx != 1f || sy != 1f) canvas.scale(sx, sy, cx, if (playing == "jelly") baseY else midY)
+            canvas.drawText(s, cx, baseY, outline)
             if (!ch.isWhitespace()) {
                 fill.color = colours[colourIndex % colours.size]
                 colourIndex++
             }
-            canvas.drawText(s, x, y + bounce, fill)
-            x += fill.measureText(s)
+            canvas.drawText(s, cx, baseY, fill)
+            canvas.restore()
+            x += cw + gap
         }
+        if (running) postInvalidateOnAnimation() else playing = ""
     }
 }

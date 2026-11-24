@@ -144,6 +144,18 @@ class Settings(ctx: Context) {
         get() = getS("childName", "")
         set(v) = putS("childName", v.take(20))
 
+    var nameSpacing: String // a key from NAME_SPACINGS
+        get() = getS("nameSpacing", "normal")
+        set(v) = putS("nameSpacing", v)
+
+    var nameColours: String // a key from NAME_COLOURS
+        get() = getS("nameColours", "rainbow")
+        set(v) = putS("nameColours", v)
+
+    var nameAction: String // a key from NAME_ACTIONS: what the name does when touched
+        get() = getS("nameAction", "random")
+        set(v) = putS("nameAction", v)
+
     // ---------- Wallpaper ----------
     var wallpaper: String // a colour name from WALLPAPERS, or "photo"
         get() = getS("wallpaper", "sky")
@@ -347,6 +359,48 @@ class Settings(ctx: Context) {
             "sea" to Triple("Deep sea", Color.rgb(60, 200, 200), Color.rgb(20, 70, 140)),
             "night" to Triple("Night", Color.rgb(50, 60, 110), Color.rgb(10, 10, 30)),
             "plain" to Triple("Plain grey", Color.rgb(90, 90, 95), Color.rgb(90, 90, 95)),
+        )
+
+        val NAME_SPACINGS = listOf(
+            "tight" to "Close together", "normal" to "Normal", "wide" to "Wide", "extra" to "Extra wide"
+        )
+        fun nameSpacingEm(key: String): Float = when (key) {
+            "tight" -> -0.04f; "wide" -> 0.12f; "extra" -> 0.25f; else -> 0f
+        }
+
+        /** key to (label, letter colours in turn) */
+        val NAME_COLOUR_SETS: List<Pair<String, Pair<String, IntArray>>> = listOf(
+            "rainbow" to ("Rainbow" to intArrayOf(
+                Color.rgb(255, 70, 70), Color.rgb(255, 150, 30), Color.rgb(255, 205, 0), Color.rgb(60, 190, 90),
+                Color.rgb(40, 150, 255), Color.rgb(150, 90, 255), Color.rgb(255, 90, 180))),
+            "pastel" to ("Pastel" to intArrayOf(
+                Color.rgb(255, 170, 170), Color.rgb(255, 210, 150), Color.rgb(250, 235, 140),
+                Color.rgb(170, 230, 170), Color.rgb(160, 205, 255), Color.rgb(205, 180, 255))),
+            "ocean" to ("Ocean blues" to intArrayOf(
+                Color.rgb(0, 120, 215), Color.rgb(0, 175, 200), Color.rgb(40, 200, 170), Color.rgb(70, 110, 230))),
+            "sunset" to ("Sunset" to intArrayOf(
+                Color.rgb(255, 90, 60), Color.rgb(255, 150, 40), Color.rgb(255, 200, 60), Color.rgb(235, 80, 140))),
+            "forest" to ("Forest greens" to intArrayOf(
+                Color.rgb(40, 150, 70), Color.rgb(110, 190, 60), Color.rgb(20, 120, 100), Color.rgb(160, 200, 50))),
+            "candy" to ("Candy pinks and purples" to intArrayOf(
+                Color.rgb(255, 90, 180), Color.rgb(190, 100, 255), Color.rgb(255, 140, 200), Color.rgb(140, 80, 230))),
+            "red" to ("All red" to intArrayOf(Color.rgb(230, 50, 50))),
+            "orange" to ("All orange" to intArrayOf(Color.rgb(255, 140, 20))),
+            "yellow" to ("All yellow" to intArrayOf(Color.rgb(255, 205, 0))),
+            "green" to ("All green" to intArrayOf(Color.rgb(50, 175, 80))),
+            "blue" to ("All blue" to intArrayOf(Color.rgb(40, 130, 255))),
+            "purple" to ("All purple" to intArrayOf(Color.rgb(140, 80, 230))),
+            "pink" to ("All pink" to intArrayOf(Color.rgb(240, 80, 160))),
+            "white" to ("All white" to intArrayOf(Color.WHITE)),
+        )
+        val NAME_COLOURS = NAME_COLOUR_SETS.map { it.first to it.second.first }
+        fun nameColourSet(key: String): IntArray =
+            (NAME_COLOUR_SETS.firstOrNull { it.first == key } ?: NAME_COLOUR_SETS[0]).second.second
+
+        val NAME_ACTIONS = listOf(
+            "random" to "A different one each time", "bounce" to "Bounce", "wave" to "Wave (letters one by one)",
+            "wiggle" to "Wiggle", "spin" to "Spin", "grow" to "Grow", "jelly" to "Wobble like jelly",
+            "off" to "Nothing"
         )
 
         val ICON_SIZES = listOf("small" to "Small", "medium" to "Medium", "large" to "Large")

@@ -22,6 +22,9 @@ object Ui {
     val ORANGE = Color.rgb(255, 150, 30)
     val RED = Color.rgb(225, 60, 60)
     val GREY = Color.rgb(140, 140, 140)
+    val PURPLE = Color.rgb(140, 90, 230)
+    val TEAL = Color.rgb(20, 160, 170)
+    val PINK = Color.rgb(230, 80, 150)
     val SHADE = Color.argb(90, 0, 0, 0)
 
     fun dp(ctx: Context, v: Int): Int = (v * ctx.resources.displayMetrics.density).toInt()
@@ -133,10 +136,14 @@ class Rows(private val activity: Activity, val col: LinearLayout) {
     }
 
     /** A big tappable line in a menu: a title and a smaller line underneath (red when it needs attention). */
-    fun menuItem(title: String, subtitle: String, warn: Boolean = false, onClick: () -> Unit) {
-        val item = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(4), dp(16), dp(4), dp(16))
+    fun menuItem(
+        title: String, subtitle: String, warn: Boolean = false,
+        icon: Icon = Icon.NONE, colour: Int = Ui.GREEN, onClick: () -> Unit
+    ) {
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), 0, 0, 0)
             isClickable = true
             isFocusable = true
             val ta = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
@@ -144,6 +151,18 @@ class Rows(private val activity: Activity, val col: LinearLayout) {
             ta.recycle()
             setOnClickListener { onClick() }
         }
+        if (icon != Icon.NONE) {
+            row.addView(RoundIconButton(activity, icon, if (warn) Ui.RED else colour).apply {
+                isClickable = false
+                isFocusable = false
+                isDuplicateParentStateEnabled = true
+            }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { setMargins(0, 0, dp(14), 0) })
+        }
+        val item = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(16), dp(4), dp(16))
+        }
+        row.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         item.addView(TextView(activity).apply {
             text = title
             textSize = 19f
@@ -154,7 +173,7 @@ class Rows(private val activity: Activity, val col: LinearLayout) {
             textSize = 14f
             setTextColor(if (warn) Ui.RED else Ui.GREY)
         })
-        col.addView(item)
+        col.addView(row)
         col.addView(View(activity).apply { setBackgroundColor(Color.argb(40, 128, 128, 128)) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
     }

@@ -11,7 +11,7 @@ pattern-protected parent area.
 - **Parent button**: a gear in one corner. A tap does nothing; hold it (3 seconds
   by default, a yellow ring fills up) and enter the parent code.
   The code starts as **0000**.
-- **Parent area**: a menu of sections, each opening its own screen.
+- **Parent area**: a menu of sections, each with its own icon and opening its own screen.
   - **Lock-down checks**: a tick or cross for each setup step (home app, Toddler
     Guard, background use, updates, own code, apps chosen) with a button to fix
     any that have been switched off. The menu line turns red if anything needs attention.
@@ -27,7 +27,7 @@ pattern-protected parent area.
     `catalog.json` in this repo, so new ones appear without a launcher update).
     Install or update them from their GitHub releases, show them on the toddler
     screen, and open them to set up their own parent settings.
-  - **Look and layout**: your child's name at the top in colourful letters, columns, rows (swapped automatically when sideways), icon
+  - **Look and layout**: your child's name at the top in colourful letters (letter spacing, colours, and a bounce, wave, wiggle, spin, grow or jelly wobble when tapped), columns, rows (swapped automatically when sideways), icon
     size, app names, wallpaper (colours or your photo), screen direction, hiding
     the status and navigation bars, keeping the screen on.
   - **Parent code and button**: PIN or pattern, recovery word, gear corner and

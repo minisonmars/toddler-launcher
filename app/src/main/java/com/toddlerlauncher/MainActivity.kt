@@ -183,8 +183,8 @@ class MainActivity : Activity() {
         }
         // The child's name, along the top
         nameView = ChildNameView(this)
-        root.addView(nameView, FrameLayout.LayoutParams(-1, dp(58), Gravity.TOP).apply {
-            topMargin = dp(12)
+        root.addView(nameView, FrameLayout.LayoutParams(-1, dp(76), Gravity.TOP).apply {
+            topMargin = dp(3)
             leftMargin = dp(84)
             rightMargin = dp(84)
         })
@@ -371,6 +371,9 @@ class MainActivity : Activity() {
         }
         // The child's name fills the space between
         nameView.name = settings.childName
+        nameView.spacing = Settings.nameSpacingEm(settings.nameSpacing)
+        nameView.colours = Settings.nameColourSet(settings.nameColours)
+        nameView.action = settings.nameAction
         nameView.visibility = if (settings.childName.isBlank()) View.GONE else View.VISIBLE
         (nameView.layoutParams as FrameLayout.LayoutParams).apply {
             val remoteSide = if (top) dp(124) else dp(84)
@@ -397,7 +400,7 @@ class MainActivity : Activity() {
     private fun placeGrid() {
         (grid.layoutParams as FrameLayout.LayoutParams).apply {
             if (isLandscape()) {
-                topMargin = if (settings.childName.isBlank()) dp(12) else dp(76)
+                topMargin = if (settings.childName.isBlank()) dp(12) else dp(80)
                 bottomMargin = if (pageCount() > 1) dp(84) else dp(12)
                 leftMargin = dp(80)
                 rightMargin = dp(80)

@@ -88,39 +88,41 @@ class ParentActivity : Activity() {
         rows.menuItem(
             "Lock-down checks",
             if (missing.isEmpty()) "Everything is set up" else "Needs attention: " + missing.joinToString(", "),
-            warn = missing.isNotEmpty()
+            warn = missing.isNotEmpty(), icon = Icon.CHECKLIST, colour = Ui.GREEN
         ) { startActivity(Intent(this, SetupActivity::class.java)) }
 
-        rows.menuItem("Apps and app time limits", "${settings.allowed.size} apps allowed") { open("apps") }
-        rows.menuItem("Recommended apps", "Install other toddler apps made for this launcher") { open("recommended") }
+        rows.menuItem("Apps and app time limits", "${settings.allowed.size} apps allowed", icon = Icon.GRID, colour = Ui.BLUE) { open("apps") }
+        rows.menuItem("Recommended apps", "Install other toddler apps made for this launcher", icon = Icon.STAR, colour = Ui.ORANGE) { open("recommended") }
 
         val u = Usage(this)
         val limit = if (settings.dailyLimitMin > 0) " of " + Usage.format(Rules.dailyAllowanceSec(settings)) else ""
         rows.menuItem(
             "Screen time and allowed hours",
             "Today: " + Usage.format(u.appSeconds(LocalDate.now())) + limit +
-                if (settings.hoursOn) ". Allowed hours on" else ""
+                if (settings.hoursOn) ". Allowed hours on" else "",
+            icon = Icon.CLOCK, colour = Ui.PURPLE
         ) { open("time") }
-        rows.menuItem("Usage report", "The last 3 days and a 7-day average") { open("report") }
-        rows.menuItem("Look and layout", "Grid, icons, wallpaper, screen direction") { open("look") }
+        rows.menuItem("Usage report", "The last 3 days and a 7-day average", icon = Icon.CHART, colour = Ui.TEAL) { open("report") }
+        rows.menuItem("Look and layout", "Name, grid, icons, wallpaper, screen direction", icon = Icon.PALETTE, colour = Ui.PINK) { open("look") }
         rows.menuItem(
             "Parent code and button",
             if (settings.isDefaultPin() && !settings.hasPattern()) "Still using the default PIN ${Settings.DEFAULT_PIN}"
             else "PIN, pattern, recovery word, gear button",
-            warn = settings.isDefaultPin() && !settings.hasPattern()
+            warn = settings.isDefaultPin() && !settings.hasPattern(), icon = Icon.LOCK, colour = Ui.ORANGE
         ) { open("code") }
         rows.menuItem(
             "Protection and volume",
             if (settings.isPaused()) "Protection is PAUSED" else "Toddler Guard, pull-down block, volume cap, pinning",
-            warn = settings.isPaused()
+            warn = settings.isPaused(), icon = Icon.SHIELD, colour = Ui.GREEN
         ) { open("protect") }
-        rows.menuItem("Wi-Fi, mobile data and Bluetooth", "Quick switches for you") { open("connect") }
+        rows.menuItem("Wi-Fi, mobile data and Bluetooth", "Quick switches for you", icon = Icon.WIFI, colour = Ui.BLUE) { open("connect") }
         rows.menuItem(
             "Remote access",
             if (settings.remoteOn) "On: change settings from your phone's browser" else "Off",
+            icon = Icon.REMOTE, colour = Ui.PURPLE
         ) { open("remote") }
-        rows.menuItem("Updates and backup", "You have version ${Updater.installedVersion(this)}") { open("updates") }
-        rows.menuItem("This device", "Use your normal home screen, uninstall") { open("device") }
+        rows.menuItem("Updates and backup", "You have version ${Updater.installedVersion(this)}", icon = Icon.DOWNLOAD, colour = Ui.TEAL) { open("updates") }
+        rows.menuItem("This device", "Use your normal home screen, uninstall", icon = Icon.DEVICE, colour = Ui.GREY) { open("device") }
     }
 
     private fun closeParentArea() {
@@ -292,6 +294,16 @@ class ParentActivity : Activity() {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+        rows.choiceRow("Space between letters", Settings.NAME_SPACINGS, settings.nameSpacing) {
+            settings.nameSpacing = it
+        }
+        rows.choiceRow("Colours", Settings.NAME_COLOURS, settings.nameColours) {
+            settings.nameColours = it
+        }
+        rows.choiceRow("When the name is touched", Settings.NAME_ACTIONS, settings.nameAction) {
+            settings.nameAction = it
+        }
+        rows.note("Tap the name on the toddler screen to see it move.")
         rows.header("Grid")
         rows.choiceRow("Columns (across)", Settings.GRID_SIZES, settings.columns.toString()) {
             settings.columns = it.toInt()
