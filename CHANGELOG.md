@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.26
+
 - Fixed: screen time limits, allowed hours and break time now also stop an app the child is already in. Some phones (Xiaomi, Redmi and POCO especially) froze the launcher while another app was open, which stopped its clock. Toddler Guard now keeps itself awake with a quiet "Toddler Guard is on" notification
 - After the launcher updates itself, protection comes straight back on (before, it could stay off for up to 5 minutes)
 
