@@ -16,7 +16,7 @@ pattern-protected parent area.
     Guard, background use, updates, own code, apps chosen) with a button to fix
     any that have been switched off. The menu line turns red if anything needs attention.
   - **Apps and app time limits**: choose and order the allowed apps; a daily limit
-    per app (the app shows faded once its time is used up).
+    per app (the app turns grey once its time is used up).
   - **Screen time and allowed hours**: a daily limit for time in apps, "Give 15
     more minutes today", a "5 minutes left" warning, and allowed hours (separate
     weekday and weekend times). Outside them the toddler screen shows "Sleep
@@ -27,7 +27,7 @@ pattern-protected parent area.
     `catalog.json` in this repo, so new ones appear without a launcher update).
     Install or update them from their GitHub releases, show them on the toddler
     screen, and open them to set up their own parent settings.
-  - **Look and layout**: columns, rows (swapped automatically when sideways), icon
+  - **Look and layout**: your child's name at the top in colourful letters, columns, rows (swapped automatically when sideways), icon
     size, app names, wallpaper (colours or your photo), screen direction, hiding
     the status and navigation bars, keeping the screen on.
   - **Parent code and button**: PIN or pattern, recovery word, gear corner and
@@ -44,7 +44,8 @@ pattern-protected parent area.
     phone's hotspot only. The parent area also shows a QR code of the address to scan. It runs in a foreground service (quiet notification)
     so it keeps working while the child is in another app. A small phone icon
     shows at the top of the screen, over other apps too, while connected. 5 wrong PINs lock it for 5 minutes.
-  - **Updates and backup**: install the latest or any earlier version; save or
+  - **Updates and backup**: shows the installed version, each newer version with
+    its changelog, and older versions in a drop-down; save or
     restore settings to a file.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
     or until you open Toddler Launcher from its icon), change the home app,
@@ -95,6 +96,13 @@ Later updates: Parent area > App updates (or, for now, the download button on
 the toddler screen). Android won't install an older version over a newer one,
 so going back means: back up settings, download the older APK, uninstall,
 install it, restore settings.
+
+## Changelog
+
+`CHANGELOG.md` lists what changed in each version. New changes go under
+"## Next"; each build uses that section as its GitHub release notes, renames it
+to the new version and commits the file back. The release notes on GitHub are
+kept in step with this file, and the in-app updater shows them.
 
 ## Building
 

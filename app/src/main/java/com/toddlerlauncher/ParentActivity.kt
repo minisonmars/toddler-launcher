@@ -271,6 +271,27 @@ class ParentActivity : Activity() {
 
     private fun buildLook(rows: Rows) {
         sectionTitle(rows, "Look and layout")
+        rows.header("Child's name")
+        rows.button(if (settings.childName.isBlank()) "Set your child's name" else "Name: ${settings.childName}") {
+            val field = android.widget.EditText(this).apply {
+                setText(settings.childName)
+                hint = "Name (up to 20 letters)"
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Child's name")
+                .setMessage("Shown at the top of the toddler screen in colourful letters. Leave it empty to hide it.")
+                .setView(android.widget.FrameLayout(this).apply {
+                    setPadding(dp(24), dp(8), dp(24), 0)
+                    addView(field)
+                })
+                .setPositiveButton("Save") { _, _ ->
+                    settings.childName = field.text.toString().trim()
+                    build()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
         rows.header("Grid")
         rows.choiceRow("Columns (across)", Settings.GRID_SIZES, settings.columns.toString()) {
             settings.columns = it.toInt()

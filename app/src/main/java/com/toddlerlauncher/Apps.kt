@@ -64,6 +64,18 @@ object Apps {
 class AppTile(context: Context, val app: AppEntry, private val showName: Boolean, private val sizeFactor: Float) :
     View(context) {
 
+    /** Grey and faded: the app's time is used up for today. */
+    var greyed = false
+        set(v) {
+            field = v
+            alpha = if (v) 0.55f else 1f
+            invalidate()
+        }
+    private val greyFilter = android.graphics.ColorMatrixColorFilter(
+        android.graphics.ColorMatrix().apply { setSaturation(0f) }
+    )
+    private val icon = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon
+
     private val text = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
@@ -93,12 +105,14 @@ class AppTile(context: Context, val app: AppEntry, private val showName: Boolean
         if (isPressed) canvas.scale(0.9f, 0.9f, w / 2f, top + side / 2f)
         val l = ((w - side) / 2f).toInt()
         val t = top.toInt()
-        app.icon.setBounds(l, t, l + side.toInt(), t + side.toInt())
-        app.icon.draw(canvas)
+        icon.colorFilter = if (greyed) greyFilter else null
+        icon.setBounds(l, t, l + side.toInt(), t + side.toInt())
+        icon.draw(canvas)
         canvas.restore()
 
         if (showName) {
             val name = TextUtils.ellipsize(app.label, text, w * 0.95f, TextUtils.TruncateAt.END).toString()
+            text.color = if (greyed) Color.LTGRAY else Color.WHITE
             canvas.drawText(name, w / 2f, top + side + text.textSize * 1.3f, text)
         }
     }

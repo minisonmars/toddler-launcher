@@ -8,6 +8,13 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
+import android.graphics.Typeface
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import org.json.JSONArray
 import java.io.File
@@ -21,7 +28,7 @@ object Updater {
 
     const val OWN_REPO = "minisonmars/toddler-launcher"
 
-    class Release(val version: String, val date: String, val apkUrl: String, val sizeBytes: Long)
+    class Release(val version: String, val date: String, val apkUrl: String, val sizeBytes: Long, val notes: String = "")
 
     fun installedVersion(ctx: Context): String =
         try {
@@ -55,7 +62,8 @@ object Updater {
                                 r.getString("tag_name").removePrefix("v"),
                                 r.optString("published_at", "").take(10),
                                 a.getString("browser_download_url"),
-                                a.optLong("size", 0L)
+                                a.optLong("size", 0L),
+                                r.optString("body", "").trim()
                             )
                         )
                         break
@@ -167,6 +175,7 @@ object Updater {
         }.start()
     }
 
+    /** Installed version, then each newer version with what changed, then older versions in a drop-down. */
     private fun showList(activity: Activity, settings: Settings, list: List<Release>) {
         val current = installedVersion(activity)
         if (list.isEmpty()) {
@@ -175,26 +184,90 @@ object Updater {
                 .setPositiveButton("OK", null).show()
             return
         }
-        val latest = list.first()
-        val labels = list.map { r ->
-            val tag = when {
-                r.version == current -> "  (installed)"
-                r === latest -> "  (latest)"
-                else -> ""
-            }
-            String.format(Locale.UK, "%s   %s   %.1f MB%s", r.version, r.date, r.sizeBytes / 1_048_576.0, tag)
-        }.toTypedArray()
-
-        val builder = AlertDialog.Builder(activity)
-            .setTitle("You have version $current")
-            .setItems(labels) { _, which -> choose(activity, settings, list[which], current) }
-            .setNegativeButton("Close", null)
-        if (compare(latest.version, current) > 0) {
-            builder.setPositiveButton("Install latest (${latest.version})") { _, _ ->
-                choose(activity, settings, latest, current)
-            }
+        fun dp(v: Int) = Ui.dp(activity, v)
+        val col = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(8))
         }
-        builder.show()
+        lateinit var dialog: AlertDialog
+        fun text(s: String, size: Float, bold: Boolean = false, colour: Int? = null) = TextView(activity).apply {
+            text = s
+            textSize = size
+            if (bold) typeface = Typeface.DEFAULT_BOLD
+            if (colour != null) setTextColor(colour)
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        fun info(r: Release) = String.format(Locale.UK, "%s  ·  %.1f MB", r.date, r.sizeBytes / 1_048_576.0)
+        fun notes(r: Release) = r.notes.ifBlank { "No notes for this version." }
+
+        val installed = list.firstOrNull { it.version == current }
+        col.addView(text("Installed: version $current", 18f, bold = true, colour = Ui.GREEN))
+        if (installed != null) col.addView(text(notes(installed), 14f, colour = Ui.GREY))
+
+        val newer = list.filter { compare(it.version, current) > 0 }
+        if (newer.isEmpty()) {
+            col.addView(text("You have the latest version.", 16f))
+        } else {
+            col.addView(text(if (newer.size == 1) "New version" else "${newer.size} new versions", 18f, bold = true)
+                .apply { setPadding(0, dp(18), 0, dp(4)) })
+            for (r in newer) {
+                col.addView(text("Version ${r.version}" + if (r === newer.first()) "  (latest)" else "", 17f, bold = true)
+                    .apply { setPadding(0, dp(12), 0, 0) })
+                col.addView(text(info(r), 13f, colour = Ui.GREY))
+                col.addView(text(notes(r), 15f))
+            }
+            col.addView(Button(activity).apply {
+                text = "Install version ${newer.first().version}"
+                isAllCaps = false
+                setOnClickListener {
+                    dialog.dismiss()
+                    start(activity, settings, newer.first())
+                }
+            })
+        }
+
+        val older = list.filter { compare(it.version, current) < 0 }
+        if (older.isNotEmpty()) {
+            col.addView(text("Older versions", 18f, bold = true).apply { setPadding(0, dp(22), 0, dp(4)) })
+            val spinner = Spinner(activity)
+            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, older.map { "${it.version}  (${it.date})" })
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinner.adapter = adapter
+            col.addView(spinner)
+            val olderNotes = text(notes(older.first()), 14f, colour = Ui.GREY)
+            col.addView(olderNotes)
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+                    olderNotes.text = notes(older[pos])
+                }
+                override fun onNothingSelected(p: AdapterView<*>?) {}
+            }
+            col.addView(Button(activity).apply {
+                text = "Go back to this version"
+                isAllCaps = false
+                setOnClickListener {
+                    dialog.dismiss()
+                    explainOlder(activity, settings, older[spinner.selectedItemPosition.coerceAtLeast(0)])
+                }
+            })
+        }
+        if (installed != null) {
+            col.addView(Button(activity).apply {
+                text = "Reinstall version $current"
+                isAllCaps = false
+                setOnClickListener {
+                    dialog.dismiss()
+                    choose(activity, settings, installed, current)
+                }
+            })
+        }
+
+        dialog = AlertDialog.Builder(activity)
+            .setTitle("App versions")
+            .setView(ScrollView(activity).apply { addView(col) })
+            .setNegativeButton("Close", null)
+            .create()
+        dialog.show()
     }
 
     private fun choose(activity: Activity, settings: Settings, r: Release, current: String) {

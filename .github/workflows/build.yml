@@ -39,7 +39,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "ToddlerLauncher-v${APP_VERSION}.apk"
+          # Release notes = the "Next" section of CHANGELOG.md
+          python3 .github/scripts/changelog.py notes > notes.md
           gh release create "v${APP_VERSION}" "ToddlerLauncher-v${APP_VERSION}.apk" \
             --title "Toddler Launcher v${APP_VERSION}" \
-            --notes "Automatic build of commit ${GITHUB_SHA::7}" \
+            --notes-file notes.md \
             --target "$GITHUB_SHA"
+
+      - name: Update the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Rename "Next" to this version in CHANGELOG.md and commit it back
+          python3 .github/scripts/changelog.py stamp "${APP_VERSION}"
+          if ! git diff --quiet CHANGELOG.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "Changelog for v${APP_VERSION}"
+            git push origin HEAD:main || echo "Changelog push skipped (main moved on)"
+          fi
+          # Keep every release's notes on GitHub the same as CHANGELOG.md
+          for tag in $(python3 .github/scripts/changelog.py tags); do
+            python3 .github/scripts/changelog.py section "$tag" > section.md
+            gh release edit "$tag" --notes-file section.md >/dev/null 2>&1 || true
+          done

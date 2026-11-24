@@ -188,6 +188,11 @@ class RemoteServer(private val ctx: Context) {
                 settings.remoteSeenAt = 0L
                 json(out, JSONObject().put("ok", true))
             }
+            "/api/name" -> {
+                val name = req.optString("name").trim()
+                main.post { settings.childName = name }
+                json(out, JSONObject().put("ok", true))
+            }
             "/api/set" -> {
                 val key = req.optString("key")
                 val item = SCHEMA.firstOrNull { it.key == key } ?: return error(out, 400, "Unknown setting")
@@ -271,6 +276,7 @@ class RemoteServer(private val ctx: Context) {
         o.put("version", Updater.installedVersion(ctx))
         o.put("device", Build.MANUFACTURER + " " + Build.MODEL)
         o.put("defaultPin", settings.isDefaultPin())
+        o.put("childName", settings.childName)
 
         // Status
         val block = Rules.block(settings, usage)

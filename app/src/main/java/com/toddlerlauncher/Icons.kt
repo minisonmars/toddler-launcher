@@ -284,3 +284,64 @@ class PageDots(context: Context) : View(context) {
         }
     }
 }
+
+/**
+ * The child's name in big, chunky letters, each one a different bright colour
+ * with a white outline. Uses the phone's playful "casual" font where it has one.
+ */
+class ChildNameView(context: Context) : View(context) {
+
+    var name: String = ""
+        set(v) {
+            field = v
+            invalidate()
+        }
+
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = android.graphics.Typeface.create("casual", android.graphics.Typeface.BOLD)
+        textAlign = Paint.Align.LEFT
+    }
+    private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = fill.typeface
+        style = Paint.Style.STROKE
+        strokeJoin = Paint.Join.ROUND
+        color = Color.WHITE
+        setShadowLayer(8f, 0f, 3f, Color.argb(140, 0, 0, 0))
+    }
+
+    private val colours = intArrayOf(
+        Color.rgb(255, 70, 70), Color.rgb(255, 150, 30), Color.rgb(255, 205, 0),
+        Color.rgb(60, 190, 90), Color.rgb(40, 150, 255), Color.rgb(150, 90, 255), Color.rgb(255, 90, 180)
+    )
+
+    override fun onDraw(canvas: Canvas) {
+        val text = name.trim()
+        if (text.isEmpty()) return
+        // Biggest size that fits the space
+        var size = height * 0.78f
+        fill.textSize = size
+        val maxW = width * 0.98f
+        val w = fill.measureText(text)
+        if (w > maxW) {
+            size *= maxW / w
+            fill.textSize = size
+        }
+        outline.textSize = size
+        outline.strokeWidth = size * 0.14f
+        val total = fill.measureText(text)
+        var x = (width - total) / 2f
+        val y = height / 2f - (fill.descent() + fill.ascent()) / 2f
+        var colourIndex = 0
+        for (ch in text) {
+            val s = ch.toString()
+            val bounce = if (colourIndex % 2 == 0) -size * 0.04f else size * 0.04f
+            canvas.drawText(s, x, y + bounce, outline)
+            if (!ch.isWhitespace()) {
+                fill.color = colours[colourIndex % colours.size]
+                colourIndex++
+            }
+            canvas.drawText(s, x, y + bounce, fill)
+            x += fill.measureText(s)
+        }
+    }
+}

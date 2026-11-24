@@ -170,6 +170,14 @@ function render() {
   status.push(el('button', { 'class': 'secondary', text: 'Refresh', onclick: load }));
   app.appendChild(card('Now', status));
 
+  // Child's name
+  var nameBox = el('input', { type: 'text', value: st.childName || '', placeholder: 'Name', maxlength: '20' });
+  app.appendChild(card("Child's name", [
+    el('p', { 'class': 'note', text: 'Shown at the top of the toddler screen. Leave it empty to hide it.' }),
+    el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), nameBox]),
+    el('button', { text: 'Save name', onclick: function () { act('name', { name: nameBox.value }, 'Name saved'); } })
+  ]));
+
   // Settings, grouped
   var groups = {};
   var order = [];

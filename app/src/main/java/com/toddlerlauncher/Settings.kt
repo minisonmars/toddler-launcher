@@ -140,6 +140,10 @@ class Settings(ctx: Context) {
         get() = getB("keepScreenOn", false)
         set(v) = putB("keepScreenOn", v)
 
+    var childName: String // shown at the top of the toddler screen, empty = none
+        get() = getS("childName", "")
+        set(v) = putS("childName", v.take(20))
+
     // ---------- Wallpaper ----------
     var wallpaper: String // a colour name from WALLPAPERS, or "photo"
         get() = getS("wallpaper", "sky")

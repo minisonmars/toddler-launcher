@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var empty: TextView
     private lateinit var lockView: LinearLayout
     private lateinit var remoteIcon: RoundIconButton
+    private lateinit var nameView: ChildNameView
 
     /** Changes made from the remote page show straight away. */
     private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -180,6 +181,14 @@ class MainActivity : Activity() {
                 cornerRadius = dp(16).toFloat()
             }
         }
+        // The child's name, along the top
+        nameView = ChildNameView(this)
+        root.addView(nameView, FrameLayout.LayoutParams(-1, dp(58), Gravity.TOP).apply {
+            topMargin = dp(12)
+            leftMargin = dp(84)
+            rightMargin = dp(84)
+        })
+
         // Small icon while a parent is connected from the remote page
         remoteIcon = RoundIconButton(this, Icon.REMOTE, Ui.SHADE).apply {
             isClickable = false
@@ -187,12 +196,10 @@ class MainActivity : Activity() {
             contentDescription = "A parent is connected remotely"
             visibility = View.GONE
         }
-        root.addView(remoteIcon, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = dp(8)
-        })
+        root.addView(remoteIcon, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP))
 
         root.addView(banner, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = dp(54)
+            topMargin = dp(76)
             leftMargin = dp(80)
             rightMargin = dp(80)
         })
@@ -356,6 +363,22 @@ class MainActivity : Activity() {
             gravity = vertical or (if (right) Gravity.START else Gravity.END)
             setMargins(dp(12), dp(12), dp(12), dp(12))
         }
+        // Remote icon along the top, on the parent button's side (next to it if the button is at the top)
+        (remoteIcon.layoutParams as FrameLayout.LayoutParams).apply {
+            gravity = Gravity.TOP or (if (right) Gravity.END else Gravity.START)
+            val side = if (top) dp(80) else dp(12)
+            setMargins(side, dp(23), side, 0)
+        }
+        // The child's name fills the space between
+        nameView.name = settings.childName
+        nameView.visibility = if (settings.childName.isBlank()) View.GONE else View.VISIBLE
+        (nameView.layoutParams as FrameLayout.LayoutParams).apply {
+            val remoteSide = if (top) dp(124) else dp(84)
+            leftMargin = if (right) dp(84) else remoteSide
+            rightMargin = if (right) remoteSide else dp(84)
+        }
+        nameView.requestLayout()
+        remoteIcon.requestLayout()
         gear.holdMs = settings.holdSeconds * 1000L
         update.visibility = if (settings.showUpdateOnHome) View.VISIBLE else View.GONE
         gear.requestLayout()
@@ -374,7 +397,7 @@ class MainActivity : Activity() {
     private fun placeGrid() {
         (grid.layoutParams as FrameLayout.LayoutParams).apply {
             if (isLandscape()) {
-                topMargin = dp(12)
+                topMargin = if (settings.childName.isBlank()) dp(12) else dp(76)
                 bottomMargin = if (pageCount() > 1) dp(84) else dp(12)
                 leftMargin = dp(80)
                 rightMargin = dp(80)
@@ -470,7 +493,7 @@ class MainActivity : Activity() {
                 val i = start + r * cols + c
                 val cell: View = if (i < apps.size) {
                     AppTile(this, apps[i], settings.showNames, sizeFactor).apply {
-                        if (appBlocked(app.pkg)) alpha = 0.3f // its time is used up for today
+                        if (appBlocked(app.pkg)) greyed = true // its time is used up for today
                         setOnClickListener { open(app) }
                     }
                 } else {
