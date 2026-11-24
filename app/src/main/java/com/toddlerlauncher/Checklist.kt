@@ -11,7 +11,7 @@ import android.os.Build
  */
 object Checklist {
 
-    class Check(val title: String, val isDone: (Activity, Settings) -> Boolean)
+    class Check(val title: String, val isDone: (android.content.Context, Settings) -> Boolean)
 
     val CHECKS = listOf(
         Check("Home screen") { a, _ -> Device.isDefaultHome(a) },
@@ -23,7 +23,7 @@ object Checklist {
     )
 
     /** Names of the checks that aren't done yet. */
-    fun missing(a: Activity, s: Settings): List<String> = CHECKS.filter { !it.isDone(a, s) }.map { it.title }
+    fun missing(a: android.content.Context, s: Settings): List<String> = CHECKS.filter { !it.isDone(a, s) }.map { it.title }
 
     /** Adds every step with its tick and button. Returns functions that refresh the ticks. */
     fun addSteps(a: Activity, rows: Rows, settings: Settings, onChanged: () -> Unit): List<() -> Unit> {

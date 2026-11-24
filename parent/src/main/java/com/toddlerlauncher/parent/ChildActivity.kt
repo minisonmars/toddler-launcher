@@ -107,11 +107,36 @@ class ChildActivity : Activity() {
         }.start()
     }
 
+    /** null = the menu; otherwise the key of the section on screen (same as the launcher's parent area). */
+    private var section: String? = null
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (section != null) {
+            section = null
+            build()
+            (rows.col.parent as? android.widget.ScrollView)?.let { sv -> sv.post { sv.scrollTo(0, 0) } }
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
+        }
+    }
+
+    private fun open(key: String) {
+        section = key
+        build()
+        (rows.col.parent as? android.widget.ScrollView)?.let { sv -> sv.post { sv.scrollTo(0, 0) } }
+    }
+
     private fun build() {
+        // Keep the scroll position when the screen is refreshed
+        val scroll = rows.col.parent as? android.widget.ScrollView
+        val y = scroll?.scrollY ?: 0
+        scroll?.post { scroll.scrollTo(0, y) }
         rows.clear()
         val s = st
-        rows.title(child.name, if (s != null) "${s.optString("device")} · version ${s.optString("version")}" else "")
         if (s == null) {
+            rows.title(child.name)
             if (problem.isEmpty()) rows.note("Connecting...")
             else {
                 rows.note(problem, Ui.RED, 16f)
@@ -120,76 +145,146 @@ class ChildActivity : Activity() {
             footer()
             return
         }
+        val key = section
+        if (key == null) buildMenu(s) else {
+            val def = com.toddlerlauncher.Sections.get(key)
+            rows.title(def?.title ?: key)
+            rows.button("Back") { section = null; build() }
+            if (problem.isNotEmpty()) rows.note(problem, Ui.RED)
+            when (key) {
+                "checks" -> buildChecks(s)
+                "apps" -> buildApps(s)
+                "recommended" -> rows.note("Install, update and open recommended apps from the parent area on the toddler device itself: Android only lets an app install other apps with someone tapping on that device.")
+                "time" -> buildTime(s)
+                "report" -> buildReport(s)
+                "look" -> buildLook(s)
+                "code" -> buildCode(s)
+                "protect" -> buildProtect(s)
+                "connect" -> buildConnect(s)
+                "remote" -> buildRemote(s)
+                "updates" -> buildUpdates(s)
+                "device" -> buildDevice(s)
+            }
+        }
+    }
+
+    private fun buildMenu(s: JSONObject) {
+        rows.title(child.name, "${s.optString("device")} · version ${s.optString("version")}")
         if (problem.isNotEmpty()) rows.note(problem, Ui.RED)
         connection(s)
 
-        // ---- Now ----
+        // Now: the quick things, before the sections
         rows.header("Now")
-        val allowance = s.optString("allowance")
-        rows.big("Today: ${s.optString("usedToday")}" + if (allowance != "No limit") " of $allowance" else "")
-        if (s.optInt("bonus") > 0) rows.note("Including ${s.optInt("bonus")} extra minutes today.")
-        if (s.optString("block").isNotEmpty()) rows.note("Toddler screen: ${s.optString("block")}", Ui.ORANGE)
-        if (s.optBoolean("paused")) rows.note(s.optString("pausedText"), Ui.ORANGE)
-        if (!s.optBoolean("guardEnabled", true)) rows.note("Toddler Guard is off in Android, so limits and blocking are not working.", Ui.RED)
-        if (s.optBoolean("defaultPin")) rows.note("Still using the default PIN 0000. Change it below.", Ui.RED)
+        nowStatus(s)
         rows.buttons(
             "+15 minutes" to { act("/api/bonus", JSONObject().put("min", 15), "15 minutes added") },
             "+30 minutes" to { act("/api/bonus", JSONObject().put("min", 30), "30 minutes added") },
         )
         if (s.optBoolean("lockedNow")) rows.button("End break time") { act("/api/lock", JSONObject().put("on", false), "Break time is over") }
         else rows.button("Break time now") { act("/api/lock", JSONObject().put("on", true), "Break time") }
-        if (s.optBoolean("paused")) rows.button("Switch protection back on") { act("/api/pause", JSONObject().put("min", 0), "Protection on") }
-        else rows.buttons(
-            "Pause 15 min" to { act("/api/pause", JSONObject().put("min", 15), "Paused") },
-            "Pause 1 hour" to { act("/api/pause", JSONObject().put("min", 60), "Paused") },
-        )
         rows.button("Refresh") { load() }
 
-        // ---- Name ----
-        rows.header("Child's name")
-        rows.button(if (s.optString("childName").isBlank()) "Set the name" else "Name: ${s.optString("childName")}") {
-            askText("Child's name", "Shown at the top of the toddler screen. Leave it empty to hide it.", s.optString("childName")) {
-                act("/api/name", JSONObject().put("name", it), "Name saved")
+        rows.header("Parent area")
+        val secs = s.optJSONArray("sections")
+        if (secs != null) {
+            for (i in 0 until secs.length()) {
+                val o = secs.getJSONObject(i)
+                val def = com.toddlerlauncher.Sections.get(o.optString("key")) ?: continue
+                rows.menuItem(def.title, o.optString("subtitle"), o.optBoolean("warn"), def.icon, def.colour) { open(def.key) }
             }
+        } else {
+            rows.note("Update Toddler Launcher on the toddler device to see its parent area here.", Ui.ORANGE)
         }
+        footer()
+    }
 
-        // ---- Settings, grouped ----
+    private fun nowStatus(s: JSONObject) {
+        val allowance = s.optString("allowance")
+        rows.big("Today: ${s.optString("usedToday")}" + if (allowance != "No limit") " of $allowance" else "")
+        if (s.optInt("bonus") > 0) rows.note("Including ${s.optInt("bonus")} extra minutes today.")
+        if (s.optString("block").isNotEmpty()) rows.note("Toddler screen: ${s.optString("block")}", Ui.ORANGE)
+        if (s.optBoolean("paused")) rows.note(s.optString("pausedText"), Ui.ORANGE)
+        if (!s.optBoolean("guardEnabled", true)) rows.note("Toddler Guard is off in Android, so limits and blocking are not working.", Ui.RED)
+    }
+
+    /** The settings of one section, under the same headings as on the device. [extra] adds things after a heading's settings. */
+    private fun schemaSection(s: JSONObject, key: String, extra: (String) -> Unit = {}) {
         val settings = s.optJSONArray("settings") ?: JSONArray()
-        val hoursOn = (0 until settings.length()).map { settings.getJSONObject(it) }
-            .firstOrNull { it.optString("key") == "hoursOn" }?.optString("value") == "true"
-        var group = ""
-        for (i in 0 until settings.length()) {
-            val item = settings.getJSONObject(i)
-            val g = item.optString("group")
-            if (g == "Allowed hours" && item.optString("key") != "hoursOn" && !hoursOn) continue
-            if (g != group) {
-                group = g
-                rows.header(g)
+        val items = (0 until settings.length()).map { settings.getJSONObject(it) }.filter { it.optString("section") == key }
+        val hoursOn = items.firstOrNull { it.optString("key") == "hoursOn" }?.optString("value") == "true"
+        var header: String? = null
+        for (item in items) {
+            val h = item.optString("header")
+            if (h != header) {
+                if (header != null) extra(header)
+                header = h
+                rows.header(h)
+                extra("before:$h")
             }
+            if (h == "Allowed hours" && item.optString("key") != "hoursOn" && !hoursOn) continue
             settingRow(item)
         }
+        if (header != null) extra(header)
+    }
 
-        // ---- Apps ----
-        rows.header("Apps")
-        rows.note("Switch on the apps your child can use, and set a daily limit for each.")
+    private fun buildChecks(s: JSONObject) {
+        val checks = s.optJSONArray("checks") ?: JSONArray()
+        for (i in 0 until checks.length()) {
+            val c = checks.getJSONObject(i)
+            rows.check(c.optString("title"), c.optBoolean("done"))
+        }
+        rows.note("To fix a cross, open Lock-down checks in the parent area on the toddler device: these are Android settings that only someone at that device can change.")
+    }
+
+    private fun buildApps(s: JSONObject) {
         val apps = s.optJSONArray("apps") ?: JSONArray()
         val limits = pairs(s.optJSONArray("appLimitOptions"))
+        rows.header("Allowed apps")
+        rows.note("Switch on the apps your child can use.")
         for (i in 0 until apps.length()) {
             val a = apps.getJSONObject(i)
             val pkg = a.optString("pkg")
-            rows.switchRow("${a.optString("label")}  (today ${a.optString("today")})", a.optBoolean("allowed")) { on ->
+            rows.switchRow(a.optString("label"), a.optBoolean("allowed")) { on ->
                 act("/api/app", JSONObject().put("pkg", pkg).put("allowed", on), if (on) "Allowed" else "Removed")
             }
-            if (a.optBoolean("allowed")) {
-                val sp = rows.choiceRow("", limits, a.optInt("limit").toString()) {
-                    act("/api/app", JSONObject().put("pkg", pkg).put("limit", it.toInt()), "Saved", reload = false)
-                }
-                (sp.layoutParams as? LinearLayout.LayoutParams)?.leftMargin = Ui.dp(this, 24)
+        }
+        rows.header("Daily time limit for each app")
+        var any = false
+        for (i in 0 until apps.length()) {
+            val a = apps.getJSONObject(i)
+            if (!a.optBoolean("allowed")) continue
+            any = true
+            val pkg = a.optString("pkg")
+            rows.choiceRow("${a.optString("label")} (today: ${a.optString("today")})", limits, a.optInt("limit").toString()) {
+                act("/api/app", JSONObject().put("pkg", pkg).put("limit", it.toInt()), "Saved", reload = false)
             }
         }
+        if (!any) rows.note("No apps allowed yet.")
+    }
 
-        // ---- Usage report ----
-        rows.header("Usage report")
+    private fun buildTime(s: JSONObject) {
+        if (!s.optBoolean("guardEnabled", true)) rows.note("Toddler Guard is off in Android, so screen time can't be counted or limited. Switch it on from Lock-down checks on the device.", Ui.RED)
+        schemaSection(s, "time") { h ->
+            when (h) {
+                "before:Daily limit" -> rows.note("Counts time spent inside the apps, not on the toddler home screen.")
+                "Daily limit" -> {
+                    nowStatus(s)
+                    rows.buttons(
+                        "Give 15 more minutes today" to { act("/api/bonus", JSONObject().put("min", 15), "15 minutes added") },
+                        "+30 minutes" to { act("/api/bonus", JSONObject().put("min", 30), "30 minutes added") },
+                    )
+                    rows.note("Extra time is added to the daily limit and to each app's limit, for today only.")
+                    rows.header("Break time")
+                    if (s.optBoolean("lockedNow")) rows.button("End break time") { act("/api/lock", JSONObject().put("on", false), "Break time is over") }
+                    else rows.button("Break time now") { act("/api/lock", JSONObject().put("on", true), "Break time") }
+                    rows.note("Locks the toddler screen and every app until you end it.")
+                }
+                "before:Allowed hours" -> rows.note("Outside these times the toddler screen shows \"Sleep time\" and no apps open.")
+            }
+        }
+    }
+
+    private fun buildReport(s: JSONObject) {
         val days = s.optJSONArray("reportDays") ?: JSONArray()
         val dayNames = (0 until days.length()).map { days.optString(it) }
         val report = s.optJSONArray("report") ?: JSONArray()
@@ -202,10 +297,52 @@ class ChildActivity : Activity() {
             rows.note(line)
         }
         rows.note("Time in apps in toddler mode. The average is the last 7 days divided by 7.")
+    }
 
-        // ---- Wi-Fi ----
+    private fun buildLook(s: JSONObject) {
+        schemaSection(s, "look") { h ->
+            if (h == "before:Child's name") {
+                rows.button(if (s.optString("childName").isBlank()) "Set your child's name" else "Name: ${s.optString("childName")}") {
+                    askText("Child's name", "Shown at the top of the toddler screen in colourful letters. Leave it empty to hide it.", s.optString("childName")) {
+                        act("/api/name", JSONObject().put("name", it), "Name saved")
+                    }
+                }
+            }
+            if (h == "Wallpaper") rows.note("To use a photo, choose it on the toddler device (Look and layout > Choose a photo).")
+        }
+    }
+
+    private fun buildCode(s: JSONObject) {
+        rows.header("Code")
+        if (s.optBoolean("defaultPin")) rows.note("Still using the default PIN 0000.", Ui.RED)
+        rows.note("Opens the parent area with: " + (if (s.optString("lockType") == "pattern") "pattern" else "PIN") +
+            ". The pattern and recovery word are set on the device.")
+        rows.button("Change PIN") { askPin() }
+        schemaSection(s, "code")
+    }
+
+    private fun buildProtect(s: JSONObject) {
+        schemaSection(s, "protect") { h ->
+            if (h == "Toddler Guard") {
+                if (s.optBoolean("paused")) {
+                    rows.note(s.optString("pausedText"), Ui.ORANGE)
+                    rows.button("Switch protection back on") { act("/api/pause", JSONObject().put("min", 0), "Protection on") }
+                } else rows.buttons(
+                    "Pause 15 min" to { act("/api/pause", JSONObject().put("min", 15), "Paused") },
+                    "Pause 1 hour" to { act("/api/pause", JSONObject().put("min", 60), "Paused") },
+                )
+            }
+        }
+    }
+
+    private fun buildConnect(s: JSONObject) {
+        fun onOff(b: Boolean, on: String = "on", off: String = "off") = if (b) on else off
+        rows.header("Wi-Fi: " + onOff(s.optBoolean("wifiOn")))
+        rows.header("Mobile data: " + onOff(s.optBoolean("mobileData"), "in use", "not in use"))
+        rows.header("Bluetooth: " + onOff(s.optBoolean("bluetoothOn")))
+        rows.header("Aeroplane mode: " + onOff(s.optBoolean("airplaneOn")))
+        rows.note("Android doesn't let apps switch these, so they can only be changed on the device.")
         rows.header("Wi-Fi networks")
-        rows.note("Wi-Fi is ${if (s.optBoolean("wifiOn")) "on" else "off"} on the toddler device.")
         if (!s.optBoolean("wifiSupported")) {
             rows.note("Adding networks needs Android 10 or newer on the toddler device.")
         } else {
@@ -221,11 +358,36 @@ class ChildActivity : Activity() {
                 }
             }
         }
+    }
 
-        // ---- PIN ----
-        rows.header("Parent PIN")
-        rows.button("Change the parent PIN") { askPin() }
-        footer()
+    private fun buildRemote(s: JSONObject) {
+        connection(s)
+        rows.header("Paired phones")
+        val names = s.optJSONArray("pairedNames") ?: JSONArray()
+        for (i in 0 until names.length()) rows.note(names.optString(i), size = 16f)
+        rows.note("Remove other phones from Parent area > Remote access on the device.")
+        rows.header("This phone")
+        rows.button("Unpair this phone") { unpair() }
+    }
+
+    private fun buildUpdates(s: JSONObject) {
+        rows.header("App updates")
+        rows.note("The toddler device has version ${s.optString("version")}.", size = 16f)
+        val v = s.optString("latestVersion")
+        if (v.isNotEmpty()) rows.note("Version $v is ready. Install it from Updates and backup on the device (Android asks someone there to confirm).", Ui.RED)
+        else rows.note("It's up to date (as of its last check).")
+        rows.button("Updates for this app (Toddler Parent)") { Updater.showDialog(this) }
+        rows.header("Backup")
+        rows.note("Save and restore settings files on the device itself.")
+    }
+
+    private fun buildDevice(s: JSONObject) {
+        rows.header("About")
+        rows.note("${s.optString("device")}, Android ${s.optString("android")}", size = 16f)
+        if (s.has("battery")) rows.note("Battery ${s.optInt("battery")}%" + if (s.optBoolean("charging")) " (charging)" else "")
+        rows.note(if (s.optBoolean("defaultHome", true)) "Toddler Launcher is the home app." else "Toddler Launcher is NOT the home app.",
+            if (s.optBoolean("defaultHome", true)) Ui.GREY else Ui.RED)
+        rows.note("Using your normal home screen for a while, changing the home app and uninstalling are done on the device.")
     }
 
     /** How the two are connected, and other details that help when something isn't working. */
@@ -263,18 +425,20 @@ class ChildActivity : Activity() {
 
     private fun footer() {
         rows.header("This phone")
-        rows.button("Unpair this phone") {
-            AlertDialog.Builder(this).setTitle("Unpair from ${child.name}?")
-                .setMessage("You'll need the parent PIN to pair again.")
-                .setPositiveButton("Unpair") { _, _ ->
-                    Thread {
-                        try { Net.call(this, child, "/api/unpair") } catch (e: Exception) {}
-                        Store.remove(this, child.id)
-                        runOnUiThread { finish() }
-                    }.start()
-                }
-                .setNegativeButton("Cancel", null).show()
-        }
+        rows.button("Unpair this phone") { unpair() }
+    }
+
+    private fun unpair() {
+        AlertDialog.Builder(this).setTitle("Unpair from ${child.name}?")
+            .setMessage("You'll need the parent PIN to pair again.")
+            .setPositiveButton("Unpair") { _, _ ->
+                Thread {
+                    try { Net.call(this, child, "/api/unpair") } catch (e: Exception) {}
+                    Store.remove(this, child.id)
+                    runOnUiThread { finish() }
+                }.start()
+            }
+            .setNegativeButton("Cancel", null).show()
     }
 
     private fun pairs(arr: JSONArray?): List<Pair<String, String>> {
@@ -286,7 +450,8 @@ class ChildActivity : Activity() {
         val key = item.optString("key")
         val label = item.optString("label")
         val value = item.optString("value")
-        fun set(v: Any) = act("/api/set", JSONObject().put("key", key).put("value", v), "Saved", reload = key == "hoursOn")
+        val type = item.optString("type")
+        fun set(v: Any) = act("/api/set", JSONObject().put("key", key).put("value", v), "Saved", reload = key == "hoursOn" || type == "time")
         when (item.optString("type")) {
             "bool" -> rows.switchRow(label, value == "true") { set(it) }
             "time" -> {

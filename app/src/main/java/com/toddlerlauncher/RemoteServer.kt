@@ -7,6 +7,7 @@ import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.Toast
 import com.toddlerlauncher.link.Link
 import org.json.JSONArray
@@ -115,12 +116,39 @@ class RemoteServer(private val ctx: Context) {
                         val html = ctx.assets.open("remote.html").use { it.readBytes() }
                         send(out, 200, "text/html; charset=utf-8", html)
                     }
+                    method == "GET" && path.startsWith("/icon/") -> {
+                        // The parent area's icons as pictures, so the web page shows the same ones
+                        val name = path.removePrefix("/icon/").removeSuffix(".png")
+                        val colour = parts[1].substringAfter("c=", "").take(6).toIntOrNull(16) ?: 0x8C8C8C
+                        val png = iconPng(name, colour)
+                        if (png == null) send(out, 404, "text/plain", "Not found".toByteArray())
+                        else send(out, 200, "image/png", png)
+                    }
                     path.startsWith("/api/") -> api(out, method, path, headers["x-token"] ?: "", body)
                     else -> send(out, 404, "text/plain", "Not found".toByteArray())
                 }
             } catch (e: Exception) {
             }
         }
+    }
+
+    private val iconCache = HashMap<String, ByteArray>()
+
+    private fun iconPng(name: String, colour: Int): ByteArray? {
+        val icon = Icon.values().firstOrNull { it.name == name } ?: return null
+        val key = "$name/$colour"
+        synchronized(iconCache) { iconCache[key]?.let { return it } }
+        val size = 96
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val v = RoundIconButton(ctx, icon, colour or (0xFF shl 24))
+        v.measure(View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY))
+        v.layout(0, 0, size, size)
+        v.draw(android.graphics.Canvas(bmp))
+        val buf = ByteArrayOutputStream()
+        bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, buf)
+        val bytes = buf.toByteArray()
+        synchronized(iconCache) { iconCache[key] = bytes }
+        return bytes
     }
 
     private fun readLine(input: InputStream): String? {
@@ -405,6 +433,25 @@ class RemoteServer(private val ctx: Context) {
         } catch (e: Exception) {
         }
         o.put("clock", System.currentTimeMillis())
+
+        // The parent area's menu, with the same lines as on the device
+        val secs = JSONArray()
+        for (d in Sections.ALL) {
+            val line = ParentMenu.line(ctx, d.key)
+            secs.put(JSONObject().put("key", d.key).put("title", d.title).put("icon", d.icon.name)
+                .put("colour", String.format("%06X", d.colour and 0xFFFFFF)).put("subtitle", line.subtitle).put("warn", line.warn))
+        }
+        o.put("sections", secs)
+        val checks = JSONArray()
+        for (c in Checklist.CHECKS) checks.put(JSONObject().put("title", c.title).put("done", c.isDone(ctx, settings)))
+        o.put("checks", checks)
+        o.put("mobileData", Device.isMobileDataInUse(ctx) ?: false)
+        o.put("bluetoothOn", Device.isBluetoothOn(ctx) ?: false)
+        o.put("airplaneOn", Device.isAirplaneOn(ctx) ?: false)
+        o.put("latestVersion", Updater.available(ctx) ?: "")
+        o.put("remoteOn", settings.remoteOn)
+        o.put("lockType", settings.lockType)
+        o.put("pairedNames", JSONArray(Pairs.list(ctx).map { it.name }))
         o.put("defaultPin", settings.isDefaultPin())
         o.put("childName", settings.childName)
         o.put("id", settings.deviceId)
@@ -442,7 +489,8 @@ class RemoteServer(private val ctx: Context) {
             } else item.options
             for ((v, l) in list) opts.put(JSONArray().put(v).put(l))
             sch.put(
-                JSONObject().put("key", item.key).put("label", item.label).put("group", item.group)
+                JSONObject().put("key", item.key).put("label", item.label).put("section", item.section)
+                    .put("header", item.header).put("group", item.header)
                     .put("type", item.type).put("options", opts).put("value", item.read(settings).toString())
             )
         }
@@ -494,8 +542,9 @@ class RemoteServer(private val ctx: Context) {
         return o
     }
 
+    /** A setting the parent app and web page can change, in the same section and under the same heading as on the device. */
     class Item(
-        val key: String, val label: String, val group: String, val type: String,
+        val key: String, val label: String, val section: String, val header: String, val type: String,
         val options: List<Pair<String, String>>, val read: (Settings) -> Any
     )
 
@@ -506,34 +555,38 @@ class RemoteServer(private val ctx: Context) {
         private val YES_NO = emptyList<Pair<String, String>>()
 
         val SCHEMA = listOf(
-            Item("dailyLimitMin", "Daily limit (time in apps)", "Screen time", "int", Settings.DAILY_LIMITS) { it.dailyLimitMin },
-            Item("warnings", "\"5 minutes left\" warning", "Screen time", "bool", YES_NO) { it.warnings },
-            Item("hoursOn", "Only allow use between set times", "Allowed hours", "bool", YES_NO) { it.hoursOn },
-            Item("weekdayStart", "Monday to Friday from", "Allowed hours", "time", YES_NO) { it.weekdayStart },
-            Item("weekdayEnd", "Monday to Friday until", "Allowed hours", "time", YES_NO) { it.weekdayEnd },
-            Item("weekendStart", "Saturday and Sunday from", "Allowed hours", "time", YES_NO) { it.weekendStart },
-            Item("weekendEnd", "Saturday and Sunday until", "Allowed hours", "time", YES_NO) { it.weekendEnd },
-            Item("guardOn", "Use Toddler Guard", "Protection and volume", "bool", YES_NO) { it.guardOn },
-            Item("blockPullDown", "Block pulling down notifications", "Protection and volume", "bool", YES_NO) { it.blockPullDown },
-            Item("volumeCap", "Highest media volume", "Protection and volume", "int", Settings.VOLUME_CAPS) { it.volumeCap },
-            Item("pinScreen", "Pin the toddler screen", "Protection and volume", "bool", YES_NO) { it.pinScreen },
-            Item("nameSpacing", "Space between the name's letters", "Look and layout", "str", Settings.NAME_SPACINGS) { it.nameSpacing },
-            Item("nameColours", "Name colours", "Look and layout", "str", Settings.NAME_COLOURS) { it.nameColours },
-            Item("nameAction", "When the name is touched", "Look and layout", "str", Settings.NAME_ACTIONS) { it.nameAction },
-            Item("columns", "Columns (across)", "Look and layout", "int", Settings.GRID_SIZES) { it.columns },
-            Item("rows", "Rows (down)", "Look and layout", "int", Settings.GRID_SIZES) { it.rows },
-            Item("swapWhenSideways", "Swap rows and columns when sideways", "Look and layout", "bool", YES_NO) { it.swapWhenSideways },
-            Item("iconSize", "Icon size", "Look and layout", "str", Settings.ICON_SIZES) { it.iconSize },
-            Item("showNames", "Show app names", "Look and layout", "bool", YES_NO) { it.showNames },
-            Item("wallpaper", "Background", "Look and layout", "str", YES_NO) { it.wallpaper },
-            Item("dimPhoto", "Darken the photo a little", "Look and layout", "bool", YES_NO) { it.dimPhoto },
-            Item("orientation", "Screen direction", "Look and layout", "str", Settings.ORIENTATIONS) { it.orientation },
-            Item("hideBars", "Hide the status and navigation bars", "Look and layout", "bool", YES_NO) { it.hideBars },
-            Item("keepScreenOn", "Keep the screen on", "Look and layout", "bool", YES_NO) { it.keepScreenOn },
-            Item("gearCorner", "Parent button corner", "Parent button", "str", Settings.CORNERS) { it.gearCorner },
-            Item("holdSeconds", "Hold the parent button for", "Parent button", "int", Settings.HOLD_TIMES) { it.holdSeconds },
-            Item("showQrOnHome", "Connect button (QR code) on the toddler screen", "Parent button", "bool", YES_NO) { it.showQrOnHome },
-            Item("showUpdateOnHome", "Update button on the toddler screen", "Parent button", "bool", YES_NO) { it.showUpdateOnHome },
+            // Screen time and allowed hours
+            Item("dailyLimitMin", "Total time in apps per day", "time", "Daily limit", "int", Settings.DAILY_LIMITS) { it.dailyLimitMin },
+            Item("warnings", "\"5 minutes left\" warning", "time", "Daily limit", "bool", YES_NO) { it.warnings },
+            Item("hoursOn", "Only allow use between set times", "time", "Allowed hours", "bool", YES_NO) { it.hoursOn },
+            Item("weekdayStart", "Monday to Friday from", "time", "Allowed hours", "time", YES_NO) { it.weekdayStart },
+            Item("weekdayEnd", "Monday to Friday until", "time", "Allowed hours", "time", YES_NO) { it.weekdayEnd },
+            Item("weekendStart", "Saturday and Sunday from", "time", "Allowed hours", "time", YES_NO) { it.weekendStart },
+            Item("weekendEnd", "Saturday and Sunday until", "time", "Allowed hours", "time", YES_NO) { it.weekendEnd },
+            // Look and layout
+            Item("nameSpacing", "Space between letters", "look", "Child's name", "str", Settings.NAME_SPACINGS) { it.nameSpacing },
+            Item("nameColours", "Colours", "look", "Child's name", "str", Settings.NAME_COLOURS) { it.nameColours },
+            Item("nameAction", "When the name is touched", "look", "Child's name", "str", Settings.NAME_ACTIONS) { it.nameAction },
+            Item("columns", "Columns (across)", "look", "Grid", "int", Settings.GRID_SIZES) { it.columns },
+            Item("rows", "Rows (down)", "look", "Grid", "int", Settings.GRID_SIZES) { it.rows },
+            Item("swapWhenSideways", "Swap rows and columns when sideways", "look", "Grid", "bool", YES_NO) { it.swapWhenSideways },
+            Item("iconSize", "Icon size", "look", "Icons", "str", Settings.ICON_SIZES) { it.iconSize },
+            Item("showNames", "Show app names", "look", "Icons", "bool", YES_NO) { it.showNames },
+            Item("wallpaper", "Background", "look", "Wallpaper", "str", YES_NO) { it.wallpaper },
+            Item("dimPhoto", "Darken the photo a little", "look", "Wallpaper", "bool", YES_NO) { it.dimPhoto },
+            Item("orientation", "Screen direction", "look", "Screen", "str", Settings.ORIENTATIONS) { it.orientation },
+            Item("hideBars", "Hide the status and navigation bars", "look", "Screen", "bool", YES_NO) { it.hideBars },
+            Item("keepScreenOn", "Keep the screen on", "look", "Screen", "bool", YES_NO) { it.keepScreenOn },
+            // Parent code and button
+            Item("gearCorner", "Corner", "code", "Parent button", "str", Settings.CORNERS) { it.gearCorner },
+            Item("holdSeconds", "Hold for", "code", "Parent button", "int", Settings.HOLD_TIMES) { it.holdSeconds },
+            Item("showQrOnHome", "Show the \"connect a parent's phone\" button (QR code) on the toddler screen", "code", "Parent button", "bool", YES_NO) { it.showQrOnHome },
+            Item("showUpdateOnHome", "Show the update button on the toddler screen", "code", "Parent button", "bool", YES_NO) { it.showUpdateOnHome },
+            // Protection and volume
+            Item("guardOn", "Use Toddler Guard", "protect", "Toddler Guard", "bool", YES_NO) { it.guardOn },
+            Item("blockPullDown", "Block pulling down notifications and quick settings", "protect", "Toddler Guard", "bool", YES_NO) { it.blockPullDown },
+            Item("volumeCap", "Highest media volume", "protect", "Volume", "int", Settings.VOLUME_CAPS) { it.volumeCap },
+            Item("pinScreen", "Pin the toddler screen", "protect", "Screen pinning", "bool", YES_NO) { it.pinScreen },
         )
 
         /** This device's addresses on the local network, for example 192.168.1.23. */

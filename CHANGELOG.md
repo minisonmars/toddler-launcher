@@ -5,7 +5,8 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Parent app and remote web page now match the parent area on the device: the same menu of sections with the same icons, colours and lines underneath (red when something needs attention), and inside each section the same headings in the same order
+- Parent app and web page: new Lock-down checks (ticks and crosses), Wi-Fi/mobile data/Bluetooth status, updates and device sections; "Now" with extra time and break time stays at the top
 
 ## v0.1.26
 

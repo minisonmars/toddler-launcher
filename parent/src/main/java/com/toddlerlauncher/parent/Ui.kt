@@ -142,6 +142,62 @@ class Rows(private val activity: Activity, val col: LinearLayout) {
         return spinner
     }
 
+    /** A parent area menu line: round icon, title and a smaller line (red when it needs attention). Same as the launcher's. */
+    fun menuItem(title: String, subtitle: String, warn: Boolean, icon: com.toddlerlauncher.Icon, colour: Int, onClick: () -> Unit) {
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(4), 0, 0, 0)
+            isClickable = true
+            val ta = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+            background = ta.getDrawable(0)
+            ta.recycle()
+            setOnClickListener { onClick() }
+        }
+        row.addView(com.toddlerlauncher.RoundIconButton(activity, icon, if (warn) Ui.RED else colour).apply {
+            isClickable = false
+            isFocusable = false
+            isDuplicateParentStateEnabled = true
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { setMargins(0, 0, dp(14), 0) })
+        val text = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(16), dp(4), dp(16))
+        }
+        row.addView(text, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        text.addView(TextView(activity).apply {
+            this.text = title
+            textSize = 19f
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        text.addView(TextView(activity).apply {
+            this.text = subtitle
+            textSize = 14f
+            setTextColor(if (warn) Ui.RED else Ui.GREY)
+        })
+        col.addView(row)
+        col.addView(View(activity).apply { setBackgroundColor(Color.argb(40, 128, 128, 128)) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
+    }
+
+    /** A tick or cross with a label, like the lock-down checks. */
+    fun check(title: String, done: Boolean) {
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        row.addView(com.toddlerlauncher.RoundIconButton(activity,
+            if (done) com.toddlerlauncher.Icon.CHECK else com.toddlerlauncher.Icon.CROSS, if (done) Ui.GREEN else Ui.RED).apply {
+            isClickable = false
+        }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { setMargins(0, 0, dp(12), 0) })
+        row.addView(TextView(activity).apply {
+            text = title
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        col.addView(row)
+    }
+
     /** A tappable line: bold title with a smaller line under it. */
     fun item(title: String, subtitle: String, subColour: Int = Ui.GREY, onClick: () -> Unit) {
         val box = LinearLayout(activity).apply {

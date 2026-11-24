@@ -91,51 +91,12 @@ class ParentActivity : Activity() {
         rows.title("Parent area")
         rows.button("Back to the toddler screen") { closeParentArea() }
 
-        val missing = Checklist.missing(this, settings)
-        rows.menuItem(
-            "Lock-down checks",
-            if (missing.isEmpty()) "Everything is set up" else "Needs attention: " + missing.joinToString(", "),
-            warn = missing.isNotEmpty(), icon = Icon.CHECKLIST, colour = Ui.GREEN
-        ) { startActivity(Intent(this, SetupActivity::class.java)) }
-
-        rows.menuItem("Apps and app time limits", "${settings.allowed.size} apps allowed", icon = Icon.GRID, colour = Ui.BLUE) { open("apps") }
-        rows.menuItem("Recommended apps", "Install other toddler apps made for this launcher", icon = Icon.STAR, colour = Ui.ORANGE) { open("recommended") }
-
-        val u = Usage(this)
-        val limit = if (settings.dailyLimitMin > 0) " of " + Usage.format(Rules.dailyAllowanceSec(settings)) else ""
-        rows.menuItem(
-            "Screen time and allowed hours",
-            "Today: " + Usage.format(u.appSeconds(LocalDate.now())) + limit +
-                if (settings.hoursOn) ". Allowed hours on" else "",
-            icon = Icon.CLOCK, colour = Ui.PURPLE
-        ) { open("time") }
-        rows.menuItem("Usage report", "The last 3 days and a 7-day average", icon = Icon.CHART, colour = Ui.TEAL) { open("report") }
-        rows.menuItem("Look and layout", "Name, grid, icons, wallpaper, screen direction", icon = Icon.PALETTE, colour = Ui.PINK) { open("look") }
-        rows.menuItem(
-            "Parent code and button",
-            if (settings.isDefaultPin() && !settings.hasPattern()) "Still using the default PIN ${Settings.DEFAULT_PIN}"
-            else "PIN, pattern, recovery word, gear button",
-            warn = settings.isDefaultPin() && !settings.hasPattern(), icon = Icon.LOCK, colour = Ui.ORANGE
-        ) { open("code") }
-        rows.menuItem(
-            "Protection and volume",
-            if (settings.isPaused()) "Protection is PAUSED" else "Toddler Guard, pull-down block, volume cap, pinning",
-            warn = settings.isPaused(), icon = Icon.SHIELD, colour = Ui.GREEN
-        ) { open("protect") }
-        rows.menuItem("Wi-Fi, mobile data and Bluetooth", "Quick switches for you", icon = Icon.WIFI, colour = Ui.BLUE) { open("connect") }
-        rows.menuItem(
-            "Remote access",
-            if (settings.remoteOn) "On: change settings from your phone's browser" else "Off",
-            icon = Icon.REMOTE, colour = Ui.PURPLE
-        ) { open("remote") }
-        val newVersion = Updater.available(this)
-        rows.menuItem(
-            "Updates and backup",
-            if (newVersion != null) "Version $newVersion is ready to install (you have ${Updater.installedVersion(this)})"
-            else "You have version ${Updater.installedVersion(this)}",
-            warn = newVersion != null, icon = Icon.DOWNLOAD, colour = Ui.TEAL
-        ) { open("updates") }
-        rows.menuItem("This device", "Use your normal home screen, uninstall", icon = Icon.DEVICE, colour = Ui.GREY) { open("device") }
+        for (d in Sections.ALL) {
+            val line = ParentMenu.line(this, d.key)
+            rows.menuItem(d.title, line.subtitle, warn = line.warn, icon = d.icon, colour = d.colour) {
+                if (d.key == "checks") startActivity(Intent(this, SetupActivity::class.java)) else open(d.key)
+            }
+        }
     }
 
     private fun closeParentArea() {

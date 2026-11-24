@@ -55,7 +55,7 @@ pattern-protected parent area.
   or by scanning its QR code, or by typing its address. Pair once with the parent
   PIN; after that the two share a secret key (worked out with elliptic-curve
   Diffie-Hellman, never sent) and every message is locked with it (AES-GCM), with
-  old messages refused. It does everything the remote web page does. No Wi-Fi?
+  old messages refused. It shows the same parent area menu, icons and headings as the device (so does the web page). No Wi-Fi?
   The toddler device's "Connect directly" makes a private local-only hotspot and
   shows a QR code; the parent app scans it and joins (the phone keeps its mobile
   data). Paired phones are listed, and can be removed, in Parent area > Remote access.
@@ -149,10 +149,13 @@ app/src/main/java/com/toddlerlauncher/
   DirectHotspot.kt      the private hotspot for "Connect directly"
 app/src/main/assets/remote.html   the remote parent web page
 shared/java/.../link/Link.kt      pairing and message locking, used by both apps
+shared/java/.../RoundIcon.kt      icons drawn in code (both apps)
+shared/java/.../Sections.kt       the parent area sections, icons and colours (both apps)
 parent/                 the Toddler Parent app (HomeActivity, AddActivity, ChildActivity,
                         ScanActivity, Finder (mDNS), Direct (joining the hotspot), Net, Store)
   InstallReceiver.kt    install result
-  Icons.kt              icons drawn in code, hold-to-open button, page dots
+  Icons.kt              hold-to-open button, page dots, child's name
+  ParentMenu.kt         the line under each parent area section (also sent to the parent app and web page)
   Ui.kt                 colours and row builders for settings screens
 catalog.json            the recommended apps: name, package, GitHub repo, description
 app/src/main/res/       launcher icon, accessibility service config, strings

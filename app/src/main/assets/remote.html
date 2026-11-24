@@ -32,6 +32,16 @@
   #login { max-width:360px; margin:40px auto; }
   #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#333; color:#fff; padding:10px 16px; border-radius:10px; display:none; max-width:90vw; z-index:5; }
   .big { font-size:22px; font-weight:700; }
+  .menu { display:flex; align-items:center; gap:14px; padding:10px 4px; border-bottom:1px solid rgba(128,128,128,.15); cursor:pointer; }
+  .menu:last-child { border-bottom:none; }
+  .menu img { width:48px; height:48px; flex:none; }
+  .menu .t { font-size:18px; font-weight:700; }
+  .menu .s { color:var(--grey); font-size:14px; }
+  .menu .s.warn { color:var(--red); }
+  .check { display:flex; align-items:center; gap:12px; padding:6px 0; font-weight:700; font-size:17px; }
+  .check img { width:34px; height:34px; }
+  h1.sec { display:flex; align-items:center; gap:12px; font-size:22px; margin:8px 0; }
+  h1.sec img { width:40px; height:40px; }
 </style>
 </head>
 <body>
@@ -134,7 +144,7 @@ function settingRow(s) {
 }
 
 function set(key, value) {
-  api('set', { key: key, value: value }).then(function () { toast('Saved'); if (key === 'hoursOn') setTimeout(load, 400); })
+  api('set', { key: key, value: value }).then(function () { toast('Saved'); setTimeout(load, 400); })
     .catch(function (e) { toast(e.message); });
 }
 
@@ -143,116 +153,192 @@ function act(path, body, msg) {
     .catch(function (e) { toast(e.message); });
 }
 
+// The same menu and sections as the parent area on the toddler device
+function section() { return (location.hash || '').replace('#', ''); }
+window.addEventListener('hashchange', function () { if (st) { render(); window.scrollTo(0, 0); } });
+
+function icon(name, colour) { return el('img', { src: '/icon/' + name + '.png?c=' + colour, alt: '' }); }
+function note(text, cls) { return el('p', { 'class': cls || 'note', text: text }); }
+function h2(text) { return el('h2', { text: text }); }
+
+function nowStatus() {
+  var out = [];
+  out.push(el('div', { 'class': 'big', text: 'Today: ' + st.usedToday + (st.allowance !== 'No limit' ? ' of ' + st.allowance : '') }));
+  if (st.bonus > 0) out.push(note('Including ' + st.bonus + ' extra minutes today.'));
+  if (st.block) out.push(note('Toddler screen: ' + st.block, 'warn'));
+  if (st.paused) out.push(note(st.pausedText, 'warn'));
+  if (!st.guardEnabled) out.push(note('Toddler Guard is off in Android, so limits and blocking are not working.', 'warn'));
+  return out;
+}
+function breakButton() {
+  return st.lockedNow
+    ? el('button', { 'class': 'secondary', text: 'End break time', onclick: function () { act('lock', { on: false }, 'Break time is over'); } })
+    : el('button', { 'class': 'danger', text: 'Break time now', onclick: function () { act('lock', { on: true }, 'Break time'); } });
+}
+function bonusButtons(first) {
+  return el('div', {}, [
+    el('button', { text: first || '+15 minutes', onclick: function () { act('bonus', { min: 15 }, '15 minutes added'); } }),
+    el('button', { text: '+30 minutes', onclick: function () { act('bonus', { min: 30 }, '30 minutes added'); } })
+  ]);
+}
+
+// One section's settings, a card per heading, in the device's order. extra(header) adds things to that card.
+function schemaCards(key, extra) {
+  var items = st.settings.filter(function (s) { return s.section === key; });
+  var hoursOn = items.filter(function (s) { return s.key === 'hoursOn'; })[0];
+  var cards = [], current = null, header = null;
+  items.forEach(function (s) {
+    if (s.header !== header) {
+      header = s.header;
+      current = [h2(header)].concat((extra && extra('before:' + header)) || []);
+      cards.push({ h: header, c: current });
+    }
+    if (s.header === 'Allowed hours' && s.key !== 'hoursOn' && hoursOn && hoursOn.value !== 'true') return;
+    current.push(settingRow(s));
+  });
+  return cards.map(function (x) { return el('div', { 'class': 'card' }, x.c.concat((extra && extra(x.h)) || [])); });
+}
+
 function render() {
   var app = document.getElementById('app');
   app.innerHTML = '';
-  document.getElementById('sub').textContent = st.device + ' · version ' + st.version;
+  document.getElementById('sub').textContent = (st.childName || st.name) + ' · ' + st.device + ' · version ' + st.version;
+  if (!st.sections) { app.appendChild(card('Update needed', [note('Update Toddler Launcher on the toddler device.')])); return; }
+  var key = section();
+  var def = st.sections.filter(function (x) { return x.key === key; })[0];
+  if (!def) return renderMenu(app);
 
-  // Status and quick actions
-  var status = [];
-  status.push(el('div', { 'class': 'big', text: 'Today: ' + st.usedToday + (st.allowance !== 'No limit' ? ' of ' + st.allowance : '') }));
-  if (st.bonus > 0) status.push(el('p', { 'class': 'note', text: 'Including ' + st.bonus + ' extra minutes today.' }));
-  if (st.block) status.push(el('p', { 'class': 'warn', text: 'Toddler screen: ' + st.block }));
-  if (st.paused) status.push(el('p', { 'class': 'warn', text: st.pausedText }));
-  if (!st.guardEnabled) status.push(el('p', { 'class': 'warn', text: 'Toddler Guard is off in Android, so limits and blocking are not working.' }));
-  if (st.defaultPin) status.push(el('p', { 'class': 'warn', text: 'Still using the default PIN 0000. Change it below.' }));
-  status.push(el('div', {}, [
-    el('button', { text: '+15 minutes', onclick: function () { act('bonus', { min: 15 }, '15 minutes added'); } }),
-    el('button', { text: '+30 minutes', onclick: function () { act('bonus', { min: 30 }, '30 minutes added'); } }),
-    st.lockedNow
-      ? el('button', { 'class': 'secondary', text: 'End break time', onclick: function () { act('lock', { on: false }, 'Unlocked'); } })
-      : el('button', { 'class': 'danger', text: 'Break time now', onclick: function () { act('lock', { on: true }, 'Locked'); } })
-  ]));
-  status.push(el('div', {}, st.paused
-    ? [el('button', { text: 'Switch protection back on', onclick: function () { act('pause', { min: 0 }, 'Protection on'); } })]
-    : [el('button', { 'class': 'secondary', text: 'Pause 15 min', onclick: function () { act('pause', { min: 15 }, 'Paused'); } }),
-       el('button', { 'class': 'secondary', text: 'Pause 1 hour', onclick: function () { act('pause', { min: 60 }, 'Paused'); } })]));
-  status.push(el('button', { 'class': 'secondary', text: 'Refresh', onclick: load }));
-  app.appendChild(card('Now', status));
-
-  // Child's name
-  var nameBox = el('input', { type: 'text', value: st.childName || '', placeholder: 'Name', maxlength: '20' });
-  app.appendChild(card("Child's name", [
-    el('p', { 'class': 'note', text: 'Shown at the top of the toddler screen. Leave it empty to hide it.' }),
-    el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), nameBox]),
-    el('button', { text: 'Save name', onclick: function () { act('name', { name: nameBox.value }, 'Name saved'); } })
-  ]));
-
-  // Settings, grouped
-  var groups = {};
-  var order = [];
-  st.settings.forEach(function (s) {
-    if (!groups[s.group]) { groups[s.group] = []; order.push(s.group); }
-    if (s.group === 'Allowed hours' && s.key !== 'hoursOn') {
-      var on = st.settings.filter(function (x) { return x.key === 'hoursOn'; })[0];
-      if (on && on.value !== 'true') return;
+  app.appendChild(el('h1', { 'class': 'sec' }, [icon(def.icon, def.colour), el('span', { text: def.title })]));
+  app.appendChild(el('button', { 'class': 'secondary', text: 'Back', onclick: function () { location.hash = ''; } }));
+  var add = function (x) { if (x.forEach) x.forEach(function (c) { app.appendChild(c); }); else app.appendChild(x); };
+  ({
+    checks: function () {
+      add(el('div', { 'class': 'card' }, st.checks.map(function (c) {
+        return el('div', { 'class': 'check' }, [icon(c.done ? 'CHECK' : 'CROSS', c.done ? '34B37A' : 'E13C3C'), el('span', { text: c.title })]);
+      }).concat([note('To fix a cross, open Lock-down checks in the parent area on the toddler device.')])));
+    },
+    apps: function () {
+      var allowed = [h2('Allowed apps'), note('Tick the apps your child can use.')];
+      var limits = [h2('Daily time limit for each app')];
+      st.apps.forEach(function (a) {
+        var box = el('input', { type: 'checkbox' });
+        box.checked = a.allowed;
+        box.onchange = function () { act('app', { pkg: a.pkg, allowed: box.checked }, box.checked ? 'Allowed' : 'Removed'); };
+        allowed.push(el('div', { 'class': 'row' }, [el('label', { text: a.label }), box]));
+        if (a.allowed) {
+          var sel = el('select');
+          st.appLimitOptions.forEach(function (o) {
+            var opt = el('option', { value: o[0], text: o[1] });
+            if (parseInt(o[0], 10) === a.limit) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.onchange = function () { act('app', { pkg: a.pkg, limit: parseInt(sel.value, 10) }, 'Saved'); };
+          limits.push(el('div', { 'class': 'row' }, [el('label', {}, [el('div', { text: a.label }), el('div', { 'class': 'note', text: 'Today: ' + a.today })]), sel]));
+        }
+      });
+      if (limits.length === 1) limits.push(note('No apps allowed yet.'));
+      add(el('div', { 'class': 'card' }, allowed));
+      add(el('div', { 'class': 'card' }, limits));
+    },
+    recommended: function () { add(card('Recommended apps', [note('Install, update and open recommended apps from the parent area on the toddler device itself.')])); },
+    time: function () {
+      if (!st.guardEnabled) add(note('Toddler Guard is off in Android, so screen time can\'t be counted or limited.', 'warn'));
+      add(schemaCards('time', function (h) {
+        if (h === 'before:Daily limit') return [note('Counts time spent inside the apps, not on the toddler home screen.')];
+        if (h === 'Daily limit') return nowStatus().concat([bonusButtons('Give 15 more minutes today'),
+          note('Extra time is added to the daily limit and to each app\'s limit, for today only.'),
+          h2('Break time'), breakButton(), note('Locks the toddler screen and every app until you end it.')]);
+        if (h === 'before:Allowed hours') return [note('Outside these times the toddler screen shows "Sleep time" and no apps open.')];
+      }));
+    },
+    report: function () {
+      var table = el('table');
+      table.appendChild(el('tr', {}, [el('th', { text: 'App' })].concat(st.reportDays.map(function (d) { return el('th', { text: d }); })).concat([el('th', { text: '7-day avg' })])));
+      st.report.forEach(function (r) {
+        table.appendChild(el('tr', r.total ? { 'class': 'total' } : {}, [el('td', { text: r.label })].concat(r.days.map(function (d) { return el('td', { text: d }); })).concat([el('td', { text: r.avg })])));
+      });
+      add(el('div', { 'class': 'card' }, [table, note('Time in apps in toddler mode. The average is the last 7 days divided by 7.')]));
+    },
+    look: function () {
+      add(schemaCards('look', function (h) {
+        if (h === 'before:Child\'s name') {
+          var nameBox = el('input', { type: 'text', value: st.childName || '', placeholder: 'Name', maxlength: '20' });
+          return [note('Shown at the top of the toddler screen in colourful letters. Leave it empty to hide it.'),
+            el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), nameBox]),
+            el('button', { text: 'Save name', onclick: function () { act('name', { name: nameBox.value }, 'Name saved'); } })];
+        }
+        if (h === 'Wallpaper') return [note('To use a photo, choose it on the toddler device.')];
+      }));
+    },
+    code: function () {
+      var cur = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'Current PIN' });
+      var nw = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'New PIN' });
+      add(el('div', { 'class': 'card' }, [h2('Code'),
+        st.defaultPin ? note('Still using the default PIN 0000.', 'warn') : null,
+        note('Opens the parent area with: ' + (st.lockType === 'pattern' ? 'pattern' : 'PIN') + '. The pattern and recovery word are set on the device.'),
+        el('div', { 'class': 'row' }, [el('label', { text: 'Current PIN' }), cur]),
+        el('div', { 'class': 'row' }, [el('label', { text: 'New PIN (4 to 8 digits)' }), nw]),
+        el('button', { text: 'Change PIN', onclick: function () { act('pin', { current: cur.value, 'new': nw.value }, 'PIN changed'); } })]));
+      add(schemaCards('code'));
+    },
+    protect: function () {
+      add(schemaCards('protect', function (h) {
+        if (h !== 'Toddler Guard') return;
+        return st.paused
+          ? [note(st.pausedText, 'warn'), el('button', { text: 'Switch protection back on', onclick: function () { act('pause', { min: 0 }, 'Protection on'); } })]
+          : [el('div', {}, [el('button', { 'class': 'secondary', text: 'Pause 15 min', onclick: function () { act('pause', { min: 15 }, 'Paused'); } }),
+              el('button', { 'class': 'secondary', text: 'Pause 1 hour', onclick: function () { act('pause', { min: 60 }, 'Paused'); } })])];
+      }));
+    },
+    connect: function () {
+      add(el('div', { 'class': 'card' }, [h2('Wi-Fi: ' + (st.wifiOn ? 'on' : 'off')), h2('Mobile data: ' + (st.mobileData ? 'in use' : 'not in use')),
+        h2('Bluetooth: ' + (st.bluetoothOn ? 'on' : 'off')), h2('Aeroplane mode: ' + (st.airplaneOn ? 'on' : 'off')),
+        note('Android doesn\'t let apps switch these, so they can only be changed on the device.')]));
+      var wifi = [h2('Wi-Fi networks')];
+      if (!st.wifiSupported) wifi.push(note('Adding networks needs Android 10 or newer on the toddler device.'));
+      else {
+        wifi.push(note('Add a network and the toddler device joins it by itself whenever it is in range.'));
+        var ssid = el('input', { type: 'text', placeholder: 'Network name' });
+        var pass = el('input', { type: 'password', placeholder: 'Password' });
+        wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), ssid]));
+        wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Password' }), pass]));
+        wifi.push(el('button', { text: 'Add network', onclick: function () { act('wifi/add', { ssid: ssid.value, password: pass.value }); } }));
+        st.wifiNetworks.forEach(function (n) {
+          wifi.push(el('div', { 'class': 'row' }, [el('label', { text: n }),
+            el('button', { 'class': 'secondary', text: 'Remove', onclick: function () { act('wifi/remove', { ssid: n }); } })]));
+        });
+      }
+      add(el('div', { 'class': 'card' }, wifi));
+    },
+    remote: function () {
+      add(el('div', { 'class': 'card' }, [h2('Connection'), note('This page, on the same Wi-Fi. Addresses: ' + (st.addresses || []).join(', '))]));
+      add(el('div', { 'class': 'card' }, [h2('Paired phones')].concat((st.pairedNames || []).map(function (n) { return note(n); }))
+        .concat([note('The Toddler Parent app finds this device by itself on the same Wi-Fi.')])));
+      add(el('div', { 'class': 'card' }, [el('button', { 'class': 'secondary', text: 'Log out', onclick: function () { api('logout').finally(function () { showLogin(''); }); } })]));
+    },
+    updates: function () {
+      add(el('div', { 'class': 'card' }, [h2('App updates'), note('The toddler device has version ' + st.version + '.'),
+        st.latestVersion ? note('Version ' + st.latestVersion + ' is ready. Install it from Updates and backup on the device.', 'warn') : note('It is up to date (as of its last check).'),
+        h2('Backup'), note('Save and restore settings files on the device itself.')]));
+    },
+    device: function () {
+      add(el('div', { 'class': 'card' }, [h2('About'), note(st.device + ', Android ' + st.android),
+        st.battery !== undefined ? note('Battery ' + st.battery + '%' + (st.charging ? ' (charging)' : '')) : null,
+        note(st.defaultHome ? 'Toddler Launcher is the home app.' : 'Toddler Launcher is NOT the home app.', st.defaultHome ? 'note' : 'warn'),
+        note('Using your normal home screen for a while, changing the home app and uninstalling are done on the device.')]));
     }
-    groups[s.group].push(settingRow(s));
-  });
-  order.forEach(function (g) {
-    var extra = [];
-    app.appendChild(card(g, groups[g].concat(extra)));
-  });
+  }[key] || function () {})();
+}
 
-  // Apps
-  var appRows = [el('p', { 'class': 'note', text: 'Tick the apps your child can use, and set a daily limit for each.' })];
-  st.apps.forEach(function (a) {
-    var box = el('input', { type: 'checkbox' });
-    box.checked = a.allowed;
-    box.onchange = function () { act('app', { pkg: a.pkg, allowed: box.checked }, box.checked ? 'Allowed' : 'Removed'); };
-    var sel = el('select');
-    st.appLimitOptions.forEach(function (o) {
-      var opt = el('option', { value: o[0], text: o[1] });
-      if (parseInt(o[0], 10) === a.limit) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.onchange = function () { act('app', { pkg: a.pkg, limit: parseInt(sel.value, 10) }, 'Saved'); };
-    var label = el('label', {}, [el('div', { text: a.label }), el('div', { 'class': 'note', text: 'Today: ' + a.today })]);
-    var right = el('div', {}, a.allowed ? [sel, box] : [box]);
-    appRows.push(el('div', { 'class': 'row' }, [label, right]));
-  });
-  app.appendChild(card('Apps', appRows));
-
-  // Report
-  var table = el('table');
-  table.appendChild(el('tr', {}, [el('th', { text: 'App' })].concat(st.reportDays.map(function (d) { return el('th', { text: d }); })).concat([el('th', { text: '7-day avg' })])));
-  st.report.forEach(function (r) {
-    var tr = el('tr', r.total ? { 'class': 'total' } : {}, [el('td', { text: r.label })].concat(r.days.map(function (d) { return el('td', { text: d }); })).concat([el('td', { text: r.avg })]));
-    table.appendChild(tr);
-  });
-  app.appendChild(card('Usage report', [table, el('p', { 'class': 'note', text: 'Time in apps in toddler mode. The average is the last 7 days divided by 7.' })]));
-
-  // Wi-Fi
-  var wifi = [];
-  wifi.push(el('p', { 'class': 'note', text: 'Wi-Fi is ' + (st.wifiOn ? 'on' : 'off') + ' on the toddler device.' }));
-  if (!st.wifiSupported) {
-    wifi.push(el('p', { 'class': 'note', text: 'Adding networks needs Android 10 or newer on the toddler device.' }));
-  } else {
-    wifi.push(el('p', { 'class': 'note', text: 'Add a network and the toddler device joins it by itself whenever it is in range.' }));
-    var ssid = el('input', { type: 'text', placeholder: 'Network name' });
-    var pass = el('input', { type: 'password', placeholder: 'Password' });
-    wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Name' }), ssid]));
-    wifi.push(el('div', { 'class': 'row' }, [el('label', { text: 'Password' }), pass]));
-    wifi.push(el('button', { text: 'Add network', onclick: function () { act('wifi/add', { ssid: ssid.value, password: pass.value }); } }));
-    st.wifiNetworks.forEach(function (n) {
-      wifi.push(el('div', { 'class': 'row' }, [el('label', { text: n }),
-        el('button', { 'class': 'secondary', text: 'Remove', onclick: function () { act('wifi/remove', { ssid: n }); } })]));
-    });
-  }
-  app.appendChild(card('Wi-Fi networks', wifi));
-
-  // PIN
-  var cur = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'Current PIN' });
-  var nw = el('input', { type: 'password', inputmode: 'numeric', placeholder: 'New PIN' });
-  app.appendChild(card('Parent PIN', [
-    el('div', { 'class': 'row' }, [el('label', { text: 'Current' }), cur]),
-    el('div', { 'class': 'row' }, [el('label', { text: 'New (4 to 8 digits)' }), nw]),
-    el('button', { text: 'Change PIN', onclick: function () { act('pin', { current: cur.value, 'new': nw.value }, 'PIN changed'); } })
-  ]));
-
-  app.appendChild(el('div', { 'class': 'card' }, [
-    el('button', { 'class': 'secondary', text: 'Log out', onclick: function () { api('logout').finally(function () { showLogin(''); }); } })
-  ]));
+function renderMenu(app) {
+  app.appendChild(card('Now', nowStatus().concat([bonusButtons(), breakButton(),
+    el('button', { 'class': 'secondary', text: 'Refresh', onclick: load })])));
+  app.appendChild(el('div', { 'class': 'card' }, [h2('Parent area')].concat(st.sections.map(function (x) {
+    return el('div', { 'class': 'menu', onclick: function () { location.hash = x.key; } }, [
+      icon(x.icon, x.warn ? 'E13C3C' : x.colour),
+      el('div', {}, [el('div', { 'class': 't', text: x.title }), el('div', { 'class': 's' + (x.warn ? ' warn' : ''), text: x.subtitle })])
+    ]);
+  }))));
 }
 
 if (token) load();
