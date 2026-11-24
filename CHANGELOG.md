@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.15
+
 - Your child's name at the top of the toddler screen, in colourful letters (set it in the parent area under Look and layout)
 - Apps whose daily time is used up now turn grey, not just faded
 - Versions screen: shows your installed version, each newer version with what changed, and older versions in a drop-down
