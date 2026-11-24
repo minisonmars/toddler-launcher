@@ -13,6 +13,7 @@
     <!-- Keeps the remote parent page running while the child uses other apps -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <!-- "No Wi-Fi? Connect directly": Android needs these to start a private hotspot for the parent app -->
@@ -87,7 +88,11 @@
         <service
             android:name=".RemoteService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="connectedDevice|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Parental controls: keeps the child's screen time limits running while other apps are open" />
+        </service>
 
         <!-- Toddler Guard: sends the child back home if a blocked app or the notification shade opens -->
         <service

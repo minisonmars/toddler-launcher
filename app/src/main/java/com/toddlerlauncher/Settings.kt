@@ -252,6 +252,11 @@ class Settings(ctx: Context) {
         get() = getL("installingUntil", 0L)
         set(v) = putL("installingUntil", v)
 
+    /** The version that was installed when an update started (to switch protection back on once it's done). */
+    var installingFrom: String
+        get() = getS("installingFrom", "")
+        set(v) = putS("installingFrom", v)
+
     fun isInstalling() = System.currentTimeMillis() < installingUntil
 
     fun startParentMode() {
@@ -334,7 +339,7 @@ class Settings(ctx: Context) {
     fun exportJson(): String {
         val o = JSONObject()
         for ((k, v) in p.all) {
-            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome") || k == "deviceId" || k == "latestVersion" || k == "updateCheckedAt") continue
+            if (k == "parentUntil" || k == "pausedUntil" || k.startsWith("return") || k == "remoteSeenAt" || k == "lockedNow" || k == "installingUntil" || k.startsWith("otherHome") || k == "deviceId" || k == "latestVersion" || k == "updateCheckedAt" || k == "installingFrom") continue
             val item = JSONObject()
             when (v) {
                 is Boolean -> item.put("t", "b").put("v", v)

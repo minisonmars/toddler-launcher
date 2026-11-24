@@ -45,6 +45,11 @@ class GuardService : AccessibilityService() {
     override fun onServiceConnected() {
         settings = Settings(this)
         usage = Usage(this)
+        // Just updated ourselves: the install is over, so protection is straight back on
+        if (settings.installingFrom.isNotEmpty() && settings.installingFrom != Updater.installedVersion(this)) {
+            settings.installingUntil = 0L
+            settings.installingFrom = ""
+        }
         showBlocker(isActive() && settings.blockPullDown)
         lastTickAt = SystemClock.elapsedRealtime()
         handler.postDelayed(tick, TICK_MS)
@@ -72,14 +77,15 @@ class GuardService : AccessibilityService() {
         }
     }
 
-    private var remoteWanted: Boolean? = null
+    private var remoteWanted: String? = null
     private var remoteSyncedAt = 0L
 
     /** The remote parent page runs in its own service (see RemoteService) while it's switched on. */
     private fun manageRemote() {
-        val want = settings.remoteOn
+        // The keep-awake service runs while the guard is on (and for remote access); see RemoteService
+        val want = "${settings.guardOn}|${settings.remoteOn}"
         val now = SystemClock.elapsedRealtime()
-        if (want != remoteWanted || (want && now - remoteSyncedAt > 60_000)) {
+        if (want != remoteWanted || now - remoteSyncedAt > 60_000) {
             remoteWanted = want
             remoteSyncedAt = now
             RemoteService.sync(this)

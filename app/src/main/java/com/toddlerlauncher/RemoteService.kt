@@ -16,6 +16,11 @@ import android.os.IBinder
 import android.os.PowerManager
 
 /**
+ * Keeps Toddler Launcher awake while the child is in other apps: Toddler Guard's
+ * screen-time clock and limits, and (when switched on) the remote parent page.
+ * Some phones (Xiaomi, Redmi and POCO especially) freeze apps that aren't on screen,
+ * which stopped the screen-time clock while the child was in an app.
+ *
  * Keeps the remote parent page running whatever is on screen. Android limits
  * apps that are in the background (and Xiaomi phones especially), so the page
  * runs in a "foreground service" with a quiet notification, and holds the
@@ -31,34 +36,64 @@ class RemoteService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!Settings(this).remoteOn) {
+        val settings = Settings(this)
+        if (!wanted(this)) {
             stopSelf()
             return START_NOT_STICKY
         }
-        goForeground()
-        if (server == null) server = RemoteServer(this)
-        server?.start()
-        holdLocks()
-        announce()
+        goForeground(settings.remoteOn)
+        if (settings.remoteOn) {
+            if (server == null) server = RemoteServer(this)
+            server?.start()
+            holdLocks()
+            announce()
+        } else {
+            stopRemote()
+        }
         return START_STICKY
     }
 
-    private fun goForeground() {
+    private fun stopRemote() {
+        try {
+            announcer?.let { getSystemService(NsdManager::class.java).unregisterService(it) }
+        } catch (e: Exception) {
+        }
+        announcer = null
+        DirectHotspot.stop()
+        server?.stop()
+        server = null
+        try {
+            wifiLock?.release()
+            wakeLock?.release()
+        } catch (e: Exception) {
+        }
+        wifiLock = null
+        wakeLock = null
+    }
+
+    private fun goForeground(remote: Boolean) {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Remote access", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Shown while remote parent access is switched on"
+            NotificationChannel(CHANNEL, "Toddler Guard", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "Keeps screen time limits and remote access working while your child is in other apps"
                 setShowBadge(false)
             }
         )
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-            .setContentTitle("Remote access is on")
-            .setContentText("Use the Toddler Parent app, or the address in the parent area")
+            .setContentTitle(if (remote) "Toddler Guard and remote access are on" else "Toddler Guard is on")
+            .setContentText(if (remote) "Use the Toddler Parent app, or the address in the parent area"
+                else "Keeping screen time limits working in every app")
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            val type = if (remote || Build.VERSION.SDK_INT < 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                else ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            try {
+                startForeground(ID, n, type)
+            } catch (e: Exception) {
+                startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            }
         } else {
             startForeground(ID, n)
         }
@@ -130,11 +165,17 @@ class RemoteService : Service() {
         private const val CHANNEL = "remote"
         private const val ID = 42
 
-        /** Starts or stops the service to match the setting. Safe to call often. */
+        /** Runs while Toddler Guard is switched on in Android or remote access is on. */
+        fun wanted(ctx: Context): Boolean {
+            val s = Settings(ctx)
+            return s.remoteOn || (s.guardOn && Device.isGuardEnabled(ctx))
+        }
+
+        /** Starts, updates or stops the service to match the settings. Safe to call often. */
         fun sync(ctx: Context) {
             try {
                 val i = Intent(ctx, RemoteService::class.java)
-                if (Settings(ctx).remoteOn) ctx.startForegroundService(i) else ctx.stopService(i)
+                if (wanted(ctx)) ctx.startForegroundService(i) else ctx.stopService(i)
             } catch (e: Exception) {
                 // Android may refuse to start it from the background; it starts next time the launcher shows
             }
