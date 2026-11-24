@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.28
+
 - Fixed (properly this time): screen time, allowed hours and break time now close apps the child is already in. The launcher's own little windows (the pull-down strip, the "parent connected" icon and messages such as "A parent gave 15 more minutes") were being mistaken for the toddler screen, so the rules thought the child was on the home screen. Using the parent app made this happen almost every time
 - When the time is up, outside the allowed hours or at break time, every app is treated as not allowed: it closes straight away, back to the toddler screen, and anything playing is paused. Checks every 5 seconds instead of 10
 - Toddler Guard status ("Working, checked 3 s ago", or why it's standing aside) in Protection and volume, the parent app and the web page
