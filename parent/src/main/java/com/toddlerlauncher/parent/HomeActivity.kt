@@ -2,14 +2,13 @@ package com.toddlerlauncher.parent
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 
 /** The list of paired child devices. */
 class HomeActivity : Activity() {
 
     private lateinit var rows: Rows
-    private var update: Updater.Latest? = null
+    private var update: Updater.Release? = null
     private val onFound: () -> Unit = { build() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,9 +44,8 @@ class HomeActivity : Activity() {
         rows.clear()
         rows.title("Toddler Parent", "Version ${Updater.installed(this)}")
         update?.let { u ->
-            rows.button("Download version ${u.version} of this app") {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)))
-            }
+            rows.note("Version ${u.version} of this app is ready", Ui.ORANGE, 16f)
+            rows.button("See what's new and update") { Updater.showDialog(this) }
         }
         rows.header("Your child's devices")
         val children = Store.list(this)
@@ -70,6 +68,8 @@ class HomeActivity : Activity() {
             "On the toddler device, remote access needs to be on (Parent area > Remote access, or the connect " +
                 "button on the toddler screen). On the same Wi-Fi this app finds it by itself."
         )
+        rows.header("This app")
+        rows.button("App updates") { Updater.showDialog(this) }
         if (Direct.network != null) {
             rows.button("Leave the private Wi-Fi") {
                 Direct.leave(this)

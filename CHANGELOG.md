@@ -5,7 +5,7 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Parent app: App updates screen like the launcher's (new versions with what changed at the top, then the installed one, older versions behind a button), and it installs updates itself
 
 ## v0.1.22
 
