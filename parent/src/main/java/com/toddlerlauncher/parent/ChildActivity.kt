@@ -260,6 +260,17 @@ class ChildActivity : Activity() {
             }
         }
         if (!any) rows.note("No apps allowed yet.")
+        rows.header("Always allowed")
+        rows.note("These keep working when the day's time is used up, outside the allowed hours and at break time, " +
+            "and their time doesn't count towards the daily limit. Their own limit above still applies.")
+        for (i in 0 until apps.length()) {
+            val a = apps.getJSONObject(i)
+            if (!a.optBoolean("allowed")) continue
+            val pkg = a.optString("pkg")
+            rows.switchRow(a.optString("label"), a.optBoolean("exempt")) { on ->
+                act("/api/app", JSONObject().put("pkg", pkg).put("exempt", on), if (on) "Always allowed" else "Follows the rules again")
+            }
+        }
     }
 
     private fun buildTime(s: JSONObject) {

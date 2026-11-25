@@ -16,7 +16,8 @@ pattern-protected parent area.
     Guard, background use, updates, own code, apps chosen) with a button to fix
     any that have been switched off. The menu line turns red if anything needs attention.
   - **Apps and app time limits**: choose and order the allowed apps; a daily limit
-    per app (the app turns grey once its time is used up).
+    per app (the app turns grey once its time is used up), and "Always allowed" apps
+  (Toddler Camera to start with) that keep working when time is up, outside allowed hours and at break time.
   - **Screen time and allowed hours**: a daily limit for time in apps, "Give 15
     more minutes today", a "5 minutes left" warning, and allowed hours (separate
     weekday and weekend times). Outside them the toddler screen shows "Sleep

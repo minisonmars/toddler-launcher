@@ -123,6 +123,12 @@ class ParentActivity : Activity() {
                 settings.setAppLimit(app.pkg, it.toInt())
             }
         }
+        rows.header("Always allowed")
+        rows.note("These keep working when the day's time is used up, outside the allowed hours and at break time, " +
+            "and their time doesn't count towards the daily limit. Their own limit above still applies.")
+        for (app in list) {
+            rows.switchRow(app.label, settings.isExempt(app.pkg)) { on -> settings.setExempt(app.pkg, on); on }
+        }
     }
 
     // ---------- Screen time ----------
@@ -140,7 +146,7 @@ class ParentActivity : Activity() {
             settings.dailyLimitMin = it.toInt()
             col.post { build() }
         }
-        val used = u.appSeconds(LocalDate.now())
+        val used = u.countedSeconds(LocalDate.now(), settings)
         rows.note(
             "Used today: " + Usage.format(used) +
                 (if (settings.dailyLimitMin > 0) ", allowed " + Usage.format(Rules.dailyAllowanceSec(settings)) else "") +

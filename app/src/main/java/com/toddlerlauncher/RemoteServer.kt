@@ -388,6 +388,7 @@ class RemoteServer(private val ctx: Context) {
                         settings.allowed = list
                     }
                     if (req.has("limit")) settings.setAppLimit(pkg, req.optInt("limit"))
+                    if (req.has("exempt")) settings.setExempt(pkg, req.optBoolean("exempt"))
                 }
                 ok()
             }
@@ -476,7 +477,7 @@ class RemoteServer(private val ctx: Context) {
         o.put("guardEnabled", Device.isGuardEnabled(ctx))
         o.put("guardStatus", GuardService.status(ctx))
         val today = LocalDate.now()
-        o.put("usedToday", Usage.format(usage.appSeconds(today)))
+        o.put("usedToday", Usage.format(usage.countedSeconds(today, settings)))
         o.put("allowance", if (settings.dailyLimitMin > 0) Usage.format(Rules.dailyAllowanceSec(settings)) else "No limit")
         o.put("bonus", settings.bonusToday())
 
@@ -510,7 +511,7 @@ class RemoteServer(private val ctx: Context) {
         for ((pkg, label) in found) {
             apps.put(
                 JSONObject().put("pkg", pkg).put("label", label).put("allowed", settings.isAllowed(pkg))
-                    .put("limit", settings.appLimitMin(pkg)).put("today", Usage.format(usage.seconds(today, pkg)))
+                    .put("limit", settings.appLimitMin(pkg)).put("exempt", settings.isExempt(pkg)).put("today", Usage.format(usage.seconds(today, pkg)))
             )
         }
         o.put("apps", apps)

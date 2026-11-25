@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var banner: TextView
     private lateinit var empty: TextView
     private lateinit var lockView: LinearLayout
+    private lateinit var lockApps: LinearLayout
     private lateinit var remoteIcon: RoundIconButton
     private lateinit var qrButton: RoundIconButton
     private lateinit var nameView: ChildNameView
@@ -134,6 +135,13 @@ class MainActivity : Activity() {
             addView(lockText)
             visibility = View.GONE
         }
+        // Apps that are always allowed still show (and work) on the lock screen
+        lockApps = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(24), 0, 0)
+        }
+        lockView.addView(lockApps, LinearLayout.LayoutParams(-1, dp(150)))
         root.addView(lockView, FrameLayout.LayoutParams(-1, -1))
 
         // Page arrows and dots along the bottom
@@ -552,6 +560,15 @@ class MainActivity : Activity() {
             }
             null -> lockView.visibility = View.GONE
         }
+        lockApps.removeAllViews()
+        if (lockView.visibility == View.VISIBLE) {
+            for (app in apps.filter { settings.isExempt(it.pkg) }.take(4)) {
+                lockApps.addView(AppTile(this, app, true, 0.8f).apply {
+                    if (appBlocked(app.pkg)) greyed = true
+                    setOnClickListener { open(app) }
+                }, LinearLayout.LayoutParams(dp(120), -1).apply { setMargins(dp(8), 0, dp(8), 0) })
+            }
+        }
 
         if (apps.isEmpty()) {
             empty.visibility = View.VISIBLE
@@ -601,7 +618,7 @@ class MainActivity : Activity() {
         val now = SystemClock.elapsedRealtime()
         if (now - lastLaunchAt < 1500) return // little fingers often tap twice
         lastLaunchAt = now
-        if (currentBlock() != null || appBlocked(app.pkg)) {
+        if ((currentBlock() != null && !settings.isExempt(app.pkg)) || appBlocked(app.pkg)) {
             showPage(page)
             return
         }

@@ -27,6 +27,24 @@ class Settings(ctx: Context) {
 
     fun isAllowed(pkg: String) = allowed.contains(pkg)
 
+    /**
+     * Apps that keep working when the day's time is used up, outside the allowed hours and at
+     * break time, and whose time doesn't count towards the daily limit. Toddler Camera is in it
+     * unless a parent changes the list. Their own per-app limit still applies.
+     */
+    var exempt: List<String>
+        get() = getS("exempt", DEFAULT_EXEMPT).split(',').filter { it.isNotBlank() }
+        set(v) = putS("exempt", v.joinToString(","))
+
+    fun isExempt(pkg: String) = exempt.contains(pkg)
+
+    fun setExempt(pkg: String, on: Boolean) {
+        val list = exempt.toMutableList()
+        list.remove(pkg)
+        if (on) list.add(pkg)
+        exempt = list
+    }
+
     // ---------- Screen time ----------
     var dailyLimitMin: Int // 0 = no limit
         get() = getI("dailyLimitMin", 0)
@@ -374,6 +392,7 @@ class Settings(ctx: Context) {
 
     companion object {
         const val DEFAULT_PIN = "0000"
+        const val DEFAULT_EXEMPT = "com.toddlercamera"
         const val PARENT_MINUTES = 15
 
         /** name to (label, top colour, bottom colour) */

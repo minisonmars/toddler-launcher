@@ -40,6 +40,12 @@ class Usage(ctx: Context) {
     /** Time in apps (not counting the toddler home screen itself) on that day. */
     fun appSeconds(day: LocalDate): Long = packages(day).filter { it != own }.sumOf { seconds(day, it) }
 
+    /** Time that counts towards the daily limit: apps, not counting the ones that are always allowed. */
+    fun countedSeconds(day: LocalDate, s: Settings): Long {
+        val skip = s.exempt.toSet()
+        return packages(day).filter { it != own && it !in skip }.sumOf { seconds(day, it) }
+    }
+
     fun clearAll() {
         p.edit().clear().apply()
     }
@@ -63,7 +69,7 @@ object Rules {
 
     fun dailyLeftSec(s: Settings, u: Usage): Long {
         val allowance = dailyAllowanceSec(s)
-        return if (allowance == Long.MAX_VALUE) Long.MAX_VALUE else allowance - u.appSeconds(LocalDate.now())
+        return if (allowance == Long.MAX_VALUE) Long.MAX_VALUE else allowance - u.countedSeconds(LocalDate.now(), s)
     }
 
     fun appLeftSec(s: Settings, u: Usage, pkg: String): Long {
@@ -89,6 +95,10 @@ object Rules {
     }
 
     fun appBlocked(s: Settings, u: Usage, pkg: String) = appLeftSec(s, u, pkg) <= 0
+
+    /** Whether this app can't be used right now: its own limit, or (unless it's always allowed) the screen-time rules. */
+    fun blockedNow(s: Settings, u: Usage, pkg: String) =
+        appBlocked(s, u, pkg) || (!s.isExempt(pkg) && block(s, u) != null)
 
     fun hhmm(minutes: Int) = String.format(Locale.UK, "%02d:%02d", minutes / 60, minutes % 60)
 }

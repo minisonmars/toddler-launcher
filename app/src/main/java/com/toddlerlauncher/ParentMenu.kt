@@ -19,7 +19,7 @@ object ParentMenu {
             "time" -> {
                 val u = Usage(ctx)
                 val limit = if (s.dailyLimitMin > 0) " of " + Usage.format(Rules.dailyAllowanceSec(s)) else ""
-                Line("Today: " + Usage.format(u.appSeconds(LocalDate.now())) + limit +
+                Line("Today: " + Usage.format(u.countedSeconds(LocalDate.now(), s)) + limit +
                     (if (s.hoursOn) ". Allowed hours on" else "") + (if (s.lockedNow) ". Break time now" else ""), s.lockedNow)
             }
             "report" -> Line("The last 3 days and a 7-day average")

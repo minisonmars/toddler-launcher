@@ -237,8 +237,17 @@ function render() {
         }
       });
       if (limits.length === 1) limits.push(note('No apps allowed yet.'));
+      var exempt = [h2('Always allowed'), note('These keep working when the day\'s time is used up, outside the allowed hours and at break time, and their time doesn\'t count towards the daily limit. Their own limit above still applies.')];
+      st.apps.forEach(function (a) {
+        if (!a.allowed) return;
+        var box = el('input', { type: 'checkbox' });
+        box.checked = !!a.exempt;
+        box.onchange = function () { act('app', { pkg: a.pkg, exempt: box.checked }, box.checked ? 'Always allowed' : 'Follows the rules again'); };
+        exempt.push(el('div', { 'class': 'row' }, [el('label', { text: a.label }), box]));
+      });
       add(el('div', { 'class': 'card' }, allowed));
       add(el('div', { 'class': 'card' }, limits));
+      add(el('div', { 'class': 'card' }, exempt));
     },
     recommended: function () { add(card('Recommended apps', [note('Install, update and open recommended apps from the parent area on the toddler device itself.')])); },
     time: function () {

@@ -148,13 +148,13 @@ class GuardService : AccessibilityService() {
         usage.add(fg, elapsed)
         if (fg == packageName) return
 
-        if (Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, fg)) {
+        if (Rules.blockedNow(settings, usage, fg)) {
             stopMedia()
             goHome()
             return
         }
         if (settings.warnings) {
-            val left = minOf(Rules.dailyLeftSec(settings, usage), Rules.appLeftSec(settings, usage, fg))
+            val left = minOf(if (settings.isExempt(fg)) Long.MAX_VALUE else Rules.dailyLeftSec(settings, usage), Rules.appLeftSec(settings, usage, fg))
             val key = java.time.LocalDate.now().toString() + "|" + (if (left == Rules.dailyLeftSec(settings, usage)) "all" else fg) +
                 "|" + (settings.dailyLimitMin + settings.bonusToday() + settings.appLimitMin(fg))
             if (left in 1L..300L && warned.add(key)) {
@@ -210,7 +210,7 @@ class GuardService : AccessibilityService() {
         if (pkg == packageName || isKeyboard(pkg) || isPermissionDialog(pkg)) return
         // Outside the allowed hours, at break time, or when the day's time is used up, no app is
         // allowed: every app is treated like one that was never allowed and closed straight away.
-        val timeBlocked = Rules.block(settings, usage) != null || Rules.appBlocked(settings, usage, pkg)
+        val timeBlocked = Rules.blockedNow(settings, usage, pkg)
         if (settings.isAllowed(pkg) && !timeBlocked) return
         if (timeBlocked && pkg != "com.android.systemui") {
             stopMedia()
