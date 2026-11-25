@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.29
+
 - "Always allowed" apps (Apps and app time limits): they keep working when the day's time is used up, outside the allowed hours and at break time, and their time doesn't count towards the daily limit. They also show on the "Time's up" / "Sleep time" screen so they can still be opened. Toddler Camera is always allowed to start with. Also in the parent app and web page
 
 ## v0.1.28
