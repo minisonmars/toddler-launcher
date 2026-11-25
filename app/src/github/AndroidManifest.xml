@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only in the GitHub version: the built-in updater downloads and installs new APKs itself.
+     The Play version is updated by Google Play instead, so it has none of this. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <receiver
+            android:name=".InstallReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>

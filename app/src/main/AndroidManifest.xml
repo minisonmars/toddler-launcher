@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Used only to check for and download app updates from GitHub -->
+    <!-- Remote access for the parent's phone (local network only). The GitHub version also
+         uses it to check for updates; its install permission is in src/github/AndroidManifest.xml -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Only to show whether Wi-Fi, mobile data and Bluetooth are on, in the parent area -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -80,10 +80,6 @@
             android:name=".SetupActivity"
             android:exported="false"
             android:excludeFromRecents="true" />
-
-        <receiver
-            android:name=".InstallReceiver"
-            android:exported="false" />
 
         <service
             android:name=".RemoteService"

@@ -107,6 +107,29 @@ the toddler screen). Android won't install an older version over a newer one,
 so going back means: back up settings, download the older APK, uninstall,
 install it, restore settings.
 
+## Google Play version
+
+The same code builds two versions (product flavours in `app/build.gradle.kts`):
+
+- **github**: package `com.toddlerlauncher`, the APK on GitHub Releases, with the built-in
+  updater, the "Allow app updates" check and Recommended apps.
+- **play**: package `uk.co.minisonmars.toddlerlauncher`, an AAB for Google Play. No
+  self-updating, no install permission, no Recommended apps and no update button on the
+  toddler screen. Parent area > Updates and backup shows "What's new" (from `CHANGELOG.md`,
+  built into the app) and asks Google Play (In-App Updates) whether a newer version is out.
+
+Because the package names differ, both can be installed on one device (don't make both the
+home app or switch on both Toddler Guards). Both versions explain Toddler Guard's use of
+accessibility and ask for "Agree" before opening accessibility settings (Play's prominent
+disclosure rule).
+
+The Play AAB is signed with an upload key that is never in this public repo: the build
+writes `app/upload.keystore` from the `PLAY_UPLOAD_KEYSTORE` repository secret (the key file
+as base64) and uses `PLAY_KEY_PASSWORD` (it skips the AAB until both are set). Google
+re-signs it with its own key (Play App Signing). Each release then has a
+`ToddlerLauncher-Play-v….aab` to upload in Play Console. Privacy policy:
+https://apps.minisonmars.co.uk/privacy#toddler-launcher
+
 ## Changelog
 
 `CHANGELOG.md` lists what changed in each version. New changes go under
@@ -119,7 +142,7 @@ kept in step with this file, and the in-app updater shows them.
 Builds run only in GitHub Actions (`.github/workflows/build.yml`) on every push to
 `main`: JDK 17, Gradle 8.7, Android Gradle Plugin 8.5.2, Kotlin 1.9.24,
 compileSdk/targetSdk 34, minSdk 26 (Android 8.0). Each successful build publishes
-a GitHub Release `v0.1.<run number>` with both APKs (launcher and parent app). A fixed debug keystore
+a GitHub Release `v0.1.<run number>` with both APKs (launcher and parent app), plus the Play AAB once its key is set up. A fixed debug keystore
 (`app/debug.keystore`) signs every build so new versions install over old ones.
 Builds are release builds (not debuggable), which Google Play Protect treats less
 suspiciously.
@@ -141,8 +164,16 @@ app/src/main/java/com/toddlerlauncher/
   Settings.kt           saved options, PIN/pattern hashes, backup JSON
   Device.kt             checks and shortcuts to Android settings
   Apps.kt               app list, launching, app tiles
+  Store.kt              which version this is (GitHub or Play) and its parent area sections
+  Disclosure.kt         "Toddler Guard uses accessibility" explanation with Agree
+app/src/github/java/...   GitHub version only:
   Updater.kt            GitHub releases list, download and install
   Catalog.kt            recommended apps list (catalog.json)
+  RecommendedSection.kt the Recommended apps section
+  InstallReceiver.kt    install result
+app/src/play/java/...     Play version only:
+  Updater.kt            Google Play update check and the "What's new" screen
+  RecommendedSection.kt placeholder (no Recommended apps on Play yet)
   RemoteServer.kt       remote parent web server, API and Wi-Fi suggestions
   RemoteService.kt      foreground service that keeps the remote page running
   Pairs.kt              parent phones paired with this device
@@ -154,7 +185,6 @@ shared/java/.../RoundIcon.kt      icons drawn in code (both apps)
 shared/java/.../Sections.kt       the parent area sections, icons and colours (both apps)
 parent/                 the Toddler Parent app (HomeActivity, AddActivity, ChildActivity,
                         ScanActivity, Finder (mDNS), Direct (joining the hotspot), Net, Store)
-  InstallReceiver.kt    install result
   Icons.kt              hold-to-open button, page dots, child's name
   ParentMenu.kt         the line under each parent area section (also sent to the parent app and web page)
   Ui.kt                 colours and row builders for settings screens

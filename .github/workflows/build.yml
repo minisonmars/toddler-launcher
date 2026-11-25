@@ -26,25 +26,45 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Build release APKs (launcher and parent app)
-        run: gradle assembleRelease --no-daemon
+      - name: Build release APKs (launcher GitHub version and parent app)
+        # Also compiles the Play version, so mistakes in it show up even before its key is set up
+        run: gradle :app:assembleGithubRelease :parent:assembleRelease :app:compilePlayReleaseKotlin --no-daemon
+
+      # The Google Play version (AAB), signed with the upload key. The key is never in the
+      # (public) repo: it comes from the PLAY_UPLOAD_KEYSTORE secret (the key file as base64 text)
+      # and PLAY_KEY_PASSWORD. Skipped until both secrets are set up.
+      - name: Build Google Play version (AAB)
+        env:
+          PLAY_UPLOAD_KEYSTORE: ${{ secrets.PLAY_UPLOAD_KEYSTORE }}
+          PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+        run: |
+          if [ -z "$PLAY_UPLOAD_KEYSTORE" ] || [ -z "$PLAY_KEY_PASSWORD" ]; then
+            echo "Play secrets not set: skipping the Play version"
+          else
+            echo "$PLAY_UPLOAD_KEYSTORE" | tr -d ' \r\n' | base64 -d > app/upload.keystore
+            gradle :app:bundlePlayRelease --no-daemon
+            cp app/build/outputs/bundle/playRelease/app-play-release.aab "ToddlerLauncher-Play-v${APP_VERSION}.aab"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: toddler-launcher-apk
           path: |
-            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/github/release/app-github-release.apk
+            ToddlerLauncher-Play-*.aab
             parent/build/outputs/apk/release/parent-release.apk
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "ToddlerLauncher-v${APP_VERSION}.apk"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "ToddlerLauncher-v${APP_VERSION}.apk"
           cp parent/build/outputs/apk/release/parent-release.apk "ToddlerParent-v${APP_VERSION}.apk"
           # Release notes = the "Next" section of CHANGELOG.md
           python3 .github/scripts/changelog.py notes > notes.md
+          # The Play AAB is attached too (when built), for uploading to Play Console by hand
           gh release create "v${APP_VERSION}" "ToddlerLauncher-v${APP_VERSION}.apk" "ToddlerParent-v${APP_VERSION}.apk" \
+            $(ls ToddlerLauncher-Play-*.aab 2>/dev/null) \
             --title "Toddler Launcher v${APP_VERSION}" \
             --notes-file notes.md \
             --target "$GITHUB_SHA"

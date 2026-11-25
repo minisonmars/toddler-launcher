@@ -437,7 +437,7 @@ class RemoteServer(private val ctx: Context) {
 
         // The parent area's menu, with the same lines as on the device
         val secs = JSONArray()
-        for (d in Sections.ALL) {
+        for (d in Store.sections) {
             val line = ParentMenu.line(ctx, d.key)
             secs.put(JSONObject().put("key", d.key).put("title", d.title).put("icon", d.icon.name)
                 .put("colour", String.format("%06X", d.colour and 0xFFFFFF)).put("subtitle", line.subtitle).put("warn", line.warn))
@@ -556,7 +556,9 @@ class RemoteServer(private val ctx: Context) {
 
         private val YES_NO = emptyList<Pair<String, String>>()
 
-        val SCHEMA = listOf(
+        val SCHEMA get() = ALL_ITEMS.filter { !(Store.PLAY && it.key == "showUpdateOnHome") }
+
+        private val ALL_ITEMS = listOf(
             // Screen time and allowed hours
             Item("dailyLimitMin", "Total time in apps per day", "time", "Daily limit", "int", Settings.DAILY_LIMITS) { it.dailyLimitMin },
             Item("warnings", "\"5 minutes left\" warning", "time", "Daily limit", "bool", YES_NO) { it.warnings },

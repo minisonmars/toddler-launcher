@@ -425,7 +425,7 @@ class MainActivity : Activity() {
             setMargins(dp(12), dp(12), dp(12), dp(12))
         }
         // The update button sits in the other corner along the same edge, the QR button next to it
-        val showUpdate = settings.showUpdateOnHome
+        val showUpdate = settings.showUpdateOnHome && !Store.PLAY
         val showQr = settings.showQrOnHome
         val otherSide = if (right) Gravity.START else Gravity.END
         (update.layoutParams as FrameLayout.LayoutParams).apply {

@@ -91,7 +91,7 @@ class ParentActivity : Activity() {
         rows.title("Parent area")
         rows.button("Back to the toddler screen") { closeParentArea() }
 
-        for (d in Sections.ALL) {
+        for (d in Store.sections) {
             val line = ParentMenu.line(this, d.key)
             rows.menuItem(d.title, line.subtitle, warn = line.warn, icon = d.icon, colour = d.colour) {
                 if (d.key == "checks") startActivity(Intent(this, SetupActivity::class.java)) else open(d.key)
@@ -348,11 +348,13 @@ class ParentActivity : Activity() {
             settings.showQrOnHome = on
             on
         }
-        rows.switchRow("Show the update button on the toddler screen", settings.showUpdateOnHome) { on ->
-            settings.showUpdateOnHome = on
-            on
+        if (!Store.PLAY) { // the Play version is updated by Google Play
+            rows.switchRow("Show the update button on the toddler screen", settings.showUpdateOnHome) { on ->
+                settings.showUpdateOnHome = on
+                on
+            }
+            rows.note("Handy while the app is being built. Switch it off once things settle down.")
         }
-        rows.note("Handy while the app is being built. Switch it off once things settle down.")
     }
 
     // ---------- Protection ----------
@@ -442,7 +444,12 @@ class ParentActivity : Activity() {
         sectionTitle(rows, "Updates and backup")
         rows.header("App updates")
         rows.note("You have version ${Updater.installedVersion(this)}.")
-        rows.button("Check for updates or choose a version") { Updater.showDialog(this, settings) }
+        if (Store.PLAY) {
+            rows.note("Updates come from Google Play.")
+            rows.button("What's new and check for updates") { Updater.showDialog(this, settings) }
+        } else {
+            rows.button("Check for updates or choose a version") { Updater.showDialog(this, settings) }
+        }
         rows.header("Backup")
         rows.button("Save settings to a file") { saveBackup() }
         rows.button("Restore settings from a file") { openBackup() }
@@ -516,84 +523,13 @@ class ParentActivity : Activity() {
         }
     }
 
-    // ---------- Recommended apps ----------
+    // ---------- Recommended apps (GitHub version only, see RecommendedSection.kt) ----------
 
-    private var catalog: List<Catalog.Entry>? = null
-    private var latest = HashMap<String, Updater.Release?>()
-    private var catalogLoading = false
-    private var catalogError = ""
-
-    private fun loadCatalog() {
-        if (catalogLoading) return
-        catalogLoading = true
-        Thread {
-            val list = Catalog.fetch()
-            val found = HashMap<String, Updater.Release?>()
-            var error = ""
-            for (e in list) {
-                try {
-                    found[e.pkg] = Updater.fetchReleases(e.repo).firstOrNull()
-                } catch (ex: Exception) {
-                    error = ex.message ?: "couldn't reach GitHub"
-                }
-            }
-            runOnUiThread {
-                catalogLoading = false
-                catalog = list
-                latest = found
-                catalogError = error
-                if (!isFinishing) build()
-            }
-        }.start()
-    }
+    private val recommended by lazy { RecommendedSection(this, settings) { if (!isFinishing) build() } }
 
     private fun buildRecommended(rows: Rows) {
         sectionTitle(rows, "Recommended apps")
-        rows.note("Other toddler apps made to go with Toddler Launcher. Install one, then switch on " +
-            "\"Show on the toddler screen\". Each app has its own parent settings: open it from here to set it up.")
-        val list = catalog
-        if (list == null) {
-            rows.note("Checking GitHub...")
-            loadCatalog()
-            return
-        }
-        if (catalogError.isNotEmpty()) rows.note("Couldn't check every app: $catalogError").setTextColor(Ui.RED)
-        for (e in list) {
-            rows.header(e.name)
-            if (e.description.isNotEmpty()) rows.note(e.description)
-            val have = Catalog.installedVersion(this, e.pkg)
-            val newest = latest[e.pkg]
-            val status = when {
-                have == null && newest == null -> "Not installed. No download found yet."
-                have == null -> "Not installed. Latest version ${newest!!.version}."
-                newest == null -> "Installed (version $have)."
-                Updater.compare(newest.version, have) > 0 -> "Installed version $have. Version ${newest.version} is available."
-                else -> "Installed version $have, the latest."
-            }
-            rows.note(status)
-            if (newest != null && (have == null || Updater.compare(newest.version, have) > 0)) {
-                rows.button(if (have == null) "Install ${e.name}" else "Update to ${newest.version}") {
-                    Updater.start(this, settings, newest, e.name)
-                }
-            }
-            if (have != null) {
-                rows.switchRow("Show on the toddler screen", settings.isAllowed(e.pkg)) { on ->
-                    val now = settings.allowed.toMutableList()
-                    if (on && !now.contains(e.pkg)) now.add(e.pkg)
-                    if (!on) now.remove(e.pkg)
-                    settings.allowed = now
-                    on
-                }
-                rows.button("Open ${e.name}") {
-                    settings.startParentMode()
-                    if (!Apps.launch(this, e.pkg)) Ui.toast(this, "Couldn't open ${e.name}")
-                }
-            }
-        }
-        rows.button("Check again") {
-            catalog = null
-            build()
-        }
+        recommended.build(rows)
     }
 
     // ---------- This device ----------
