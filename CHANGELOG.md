@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.30
+
 - New Google Play version of Toddler Launcher (coming soon to Play). It's updated by Google Play: the parent area shows what's new and checks Play for a newer version
 - Before opening accessibility settings, Toddler Guard now explains what it uses accessibility for and asks you to agree
 
