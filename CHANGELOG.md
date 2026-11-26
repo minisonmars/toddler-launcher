@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.37
+
 - Updates screen: every version now has its own Install button under its notes, so you can pick a version that isn't the latest. Older versions are listed the same way (with "Go back to version X") instead of in a drop-down. Going back still means uninstalling first, because Android won't install an older version over a newer one, and that deletes the app's data unless you save it first
 
 ## v0.1.36
