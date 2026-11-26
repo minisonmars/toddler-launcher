@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.31
+
 - Each release now also has ToddlerLauncher-Play-v….apk, the Google Play version to try out. It installs as a separate app next to this one. The normal ToddlerLauncher APK and its built-in updater are unchanged
 
 ## v0.1.30
