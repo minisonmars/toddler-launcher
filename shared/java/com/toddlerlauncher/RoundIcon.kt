@@ -13,7 +13,7 @@ import android.view.View
 import kotlin.math.min
 
 enum class Icon { NONE, GEAR, ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, CLOSE, DOWNLOAD, CHECK, CROSS, PAUSE, MOON, HOURGLASS, REMOTE,
-    CHECKLIST, GRID, STAR, CLOCK, CHART, PALETTE, LOCK, SHIELD, WIFI, DEVICE, QR }
+    CHECKLIST, GRID, STAR, CLOCK, CHART, PALETTE, LOCK, SHIELD, WIFI, DEVICE, QR, SPEAKER }
 
 /**
  * A round button with an icon drawn in code, so every icon has the same size,
@@ -251,6 +251,25 @@ open class RoundIconButton(context: Context, icon: Icon, fill: Int) : View(conte
                 }
                 fillStyle()
                 canvas.drawCircle(0.5f, 0.70f, 0.05f, paint)
+            }
+
+            Icon.SPEAKER -> {
+                // A loudspeaker with two sound waves
+                fillStyle()
+                path.reset()
+                path.moveTo(0.22f, 0.41f)
+                path.lineTo(0.34f, 0.41f)
+                path.lineTo(0.50f, 0.26f)
+                path.lineTo(0.50f, 0.74f)
+                path.lineTo(0.34f, 0.59f)
+                path.lineTo(0.22f, 0.59f)
+                path.close()
+                canvas.drawPath(path, paint)
+                strokeStyle(0.055f)
+                for (r in listOf(0.10f, 0.20f)) {
+                    rect.set(0.50f - r, 0.5f - r, 0.50f + r, 0.5f + r)
+                    canvas.drawArc(rect, -45f, 90f, false, paint)
+                }
             }
 
             Icon.DEVICE -> {

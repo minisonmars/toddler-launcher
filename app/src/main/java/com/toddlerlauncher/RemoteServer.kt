@@ -116,6 +116,13 @@ class RemoteServer(private val ctx: Context) {
                         val html = ctx.assets.open("remote.html").use { it.readBytes() }
                         send(out, 200, "text/html; charset=utf-8", html)
                     }
+                    method == "GET" && path == "/qr.png" -> {
+                        // A QR code of this page's own address, to show to another phone
+                        val host = parts[1].substringAfter("host=", "").substringBefore('&')
+                        val png = if (host in addresses()) qrPng(Connect.addressUrl(settings, host)) else null
+                        if (png == null) send(out, 404, "text/plain", "Not found".toByteArray())
+                        else send(out, 200, "image/png", png)
+                    }
                     method == "GET" && path.startsWith("/icon/") -> {
                         // The parent area's icons as pictures, so the web page shows the same ones
                         val name = path.removePrefix("/icon/").removeSuffix(".png")
@@ -149,6 +156,13 @@ class RemoteServer(private val ctx: Context) {
         val bytes = buf.toByteArray()
         synchronized(iconCache) { iconCache[key] = bytes }
         return bytes
+    }
+
+    private fun qrPng(text: String): ByteArray? {
+        val bmp = Qr.bitmap(text, 600) ?: return null
+        val buf = ByteArrayOutputStream()
+        bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, buf)
+        return buf.toByteArray()
     }
 
     private fun readLine(input: InputStream): String? {
@@ -281,7 +295,8 @@ class RemoteServer(private val ctx: Context) {
         if (!pinOk(inner.optString("pin"))) return error(out, 401, "Wrong PIN")
         val pairId = Link.randomId()
         val phone = inner.optString("phone").take(40).ifBlank { "A parent's phone" }
-        Pairs.add(ctx, pairId, key, phone)
+        // Pairing the same phone again (say from another Wi-Fi) replaces its old pairing instead of adding another
+        Pairs.add(ctx, pairId, key, phone, inner.optString("phoneId").take(40))
         settings.remoteSeenAt = System.currentTimeMillis()
         toast("Paired with $phone (check code ${Link.checkCode(key)})")
         val reply = JSONObject().put("ok", true).put("pair", pairId).put("id", settings.deviceId).put("name", deviceName())
@@ -351,8 +366,23 @@ class RemoteServer(private val ctx: Context) {
                     "int", "time" -> req.optString("value").toIntOrNull() ?: return err(400, "Bad value")
                     else -> req.optString("value")
                 }
-                main.post { settings.putRaw(key, v) }
+                main.post {
+                    settings.putRaw(key, v)
+                    // A lower cap brings the volume down straight away
+                    if (key == "volumeCap" && settings.volumeCap > 0 && Volume.percent(ctx) > settings.volumeCap) {
+                        Volume.set(ctx, settings, settings.volumeCap)
+                    }
+                }
                 ok()
+            }
+            "/api/volume" -> {
+                // Either a level (0 to 100) or a step up or down (for example +10 or -10)
+                val now = Volume.percent(ctx)
+                val want = if (req.has("step")) now + req.optInt("step") else req.optInt("percent", now)
+                val got = Volume.set(ctx, settings, want)
+                val capped = settings.volumeCap in 1 until want
+                200 to JSONObject().put("ok", true).put("volume", got)
+                    .put("message", "Volume $got%" + if (capped) " (the highest allowed)" else "")
             }
             "/api/bonus" -> {
                 val min = req.optInt("min", 15).coerceIn(1, 240)
@@ -457,6 +487,14 @@ class RemoteServer(private val ctx: Context) {
         o.put("childName", settings.childName)
         o.put("id", settings.deviceId)
         o.put("name", deviceName())
+
+        // Volume
+        o.put("volume", Volume.percent(ctx))
+        o.put("volumeCap", settings.volumeCap)
+        val vols = JSONArray()
+        for ((v, l) in Volume.choices(settings)) vols.put(JSONArray().put(v).put(l))
+        o.put("volumeChoices", vols)
+        o.put("volumeChoice", Volume.nearestChoice(ctx, settings))
 
         // Status
         val block = Rules.block(settings, usage)
@@ -586,10 +624,10 @@ class RemoteServer(private val ctx: Context) {
             Item("holdSeconds", "Hold for", "code", "Parent button", "int", Settings.HOLD_TIMES) { it.holdSeconds },
             Item("showQrOnHome", "Show the \"connect a parent's phone\" button (QR code) on the toddler screen", "code", "Parent button", "bool", YES_NO) { it.showQrOnHome },
             Item("showUpdateOnHome", "Show the update button on the toddler screen", "code", "Parent button", "bool", YES_NO) { it.showUpdateOnHome },
-            // Protection and volume
+            // Protection
             Item("guardOn", "Use Toddler Guard", "protect", "Toddler Guard", "bool", YES_NO) { it.guardOn },
             Item("blockPullDown", "Block pulling down notifications and quick settings", "protect", "Toddler Guard", "bool", YES_NO) { it.blockPullDown },
-            Item("volumeCap", "Highest media volume", "protect", "Volume", "int", Settings.VOLUME_CAPS) { it.volumeCap },
+            Item("volumeCap", "Highest media volume", "volume", "Highest volume", "int", Settings.VOLUME_CAPS) { it.volumeCap },
             Item("pinScreen", "Pin the toddler screen", "protect", "Screen pinning", "bool", YES_NO) { it.pinScreen },
         )
 

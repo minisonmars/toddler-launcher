@@ -10,10 +10,6 @@ object ParentMenu {
     fun line(ctx: Context, key: String): Line {
         val s = Settings(ctx)
         return when (key) {
-            "checks" -> {
-                val missing = Checklist.missing(ctx, s)
-                if (missing.isEmpty()) Line("Everything is set up") else Line("Needs attention: " + missing.joinToString(", "), true)
-            }
             "apps" -> Line("${s.allowed.size} apps allowed")
             "recommended" -> Line("Install other toddler apps made for this launcher")
             "time" -> {
@@ -26,8 +22,15 @@ object ParentMenu {
             "look" -> Line("Name, grid, icons, wallpaper, screen direction")
             "code" -> if (s.isDefaultPin() && !s.hasPattern()) Line("Still using the default PIN ${Settings.DEFAULT_PIN}", true)
                 else Line("PIN, pattern, recovery word, gear button")
-            "protect" -> if (s.isPaused()) Line("Protection is PAUSED", true)
-                else Line("Toddler Guard, pull-down block, volume cap, pinning")
+            "protect", "checks" -> {
+                val missing = Checklist.missing(ctx, s)
+                when {
+                    s.isPaused() -> Line("Protection is PAUSED", true)
+                    missing.isNotEmpty() -> Line("Needs attention: " + missing.joinToString(", "), true)
+                    else -> Line("All checks done. Toddler Guard, pull-down block, pinning")
+                }
+            }
+            "volume" -> Line("Now ${Volume.percent(ctx)}%" + if (s.volumeCap > 0) ", highest ${s.volumeCap}%" else ", no cap")
             "connect" -> Line("Quick switches for you")
             "remote" -> Line(if (s.remoteOn) "On: Toddler Parent app or your phone's browser" else "Off")
             "updates" -> {

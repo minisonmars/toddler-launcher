@@ -58,7 +58,7 @@ class HomeActivity : Activity() {
                 f != null -> "On this Wi-Fi"
                 Direct.network != null && Direct.ssid == c.ssid && c.ssid.isNotEmpty() -> "Connected directly"
                 else -> "Not found on this Wi-Fi right now (tap to try anyway)"
-            }
+            } + if (c.routes.size > 1) "  ·  ${c.routes.size} ways to connect" else ""
             rows.item(f?.name ?: c.name, where, if (f != null) Ui.GREEN else Ui.GREY) {
                 startActivity(Intent(this, ChildActivity::class.java).putExtra("id", c.id))
             }

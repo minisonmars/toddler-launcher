@@ -11,7 +11,13 @@ object Pairs {
 
     private fun prefs(ctx: Context) = ctx.applicationContext.getSharedPreferences("pairs", Context.MODE_PRIVATE)
 
-    fun list(ctx: Context): List<Phone> = prefs(ctx).all.mapNotNull { (id, v) ->
+    fun list(ctx: Context): List<Phone> {
+        tidyOnce(ctx)
+        return read(ctx)
+    }
+
+    private fun read(ctx: Context): List<Phone> = prefs(ctx).all.mapNotNull { (id, v) ->
+        if (id == TIDIED) return@mapNotNull null
         try {
             val o = JSONObject(v as String)
             Phone(id, o.optString("name"), o.optLong("at"), o.optLong("seen"))
@@ -19,6 +25,22 @@ object Pairs {
             null
         }
     }.sortedBy { it.pairedAt }
+
+    private const val TIDIED = "_tidied"
+
+    /**
+     * In older versions, pairing a phone again (for example from another Wi-Fi) added a second copy.
+     * Only the newest copy of each phone still works, so the older ones are removed, once.
+     */
+    private fun tidyOnce(ctx: Context) {
+        val p = prefs(ctx)
+        if (p.contains(TIDIED)) return
+        val e = p.edit()
+        for ((_, copies) in read(ctx).groupBy { it.name }) {
+            copies.sortedByDescending { maxOf(it.lastSeen, it.pairedAt) }.drop(1).forEach { e.remove(it.id) }
+        }
+        e.putString(TIDIED, "{}").apply()
+    }
 
     fun key(ctx: Context, id: String): ByteArray? {
         if (id.isEmpty()) return null
@@ -30,9 +52,26 @@ object Pairs {
         }
     }
 
-    fun add(ctx: Context, id: String, key: ByteArray, name: String) {
+    /**
+     * Saves a new pairing. An older pairing from the same phone (same phone id, or the same
+     * name from before phones sent an id) is dead once the phone re-pairs, so it's removed:
+     * that stops the list filling up with copies of one phone.
+     */
+    fun add(ctx: Context, id: String, key: ByteArray, name: String, phoneId: String = "") {
         val now = System.currentTimeMillis()
-        prefs(ctx).edit().putString(id, JSONObject().put("key", Link.b64(key)).put("name", name)
+        val e = prefs(ctx).edit()
+        for ((old, v) in prefs(ctx).all) {
+            if (old == TIDIED) continue
+            try {
+                val o = JSONObject(v as String)
+                val oldPhone = o.optString("phone")
+                val same = if (phoneId.isNotEmpty() && oldPhone.isNotEmpty()) oldPhone == phoneId
+                else o.optString("name") == name
+                if (same) e.remove(old)
+            } catch (ex: Exception) {
+            }
+        }
+        e.putString(id, JSONObject().put("key", Link.b64(key)).put("name", name).put("phone", phoneId)
             .put("at", now).put("seen", now).toString()).apply()
     }
 

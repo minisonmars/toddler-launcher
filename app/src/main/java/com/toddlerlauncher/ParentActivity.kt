@@ -69,7 +69,8 @@ class ParentActivity : Activity() {
             "report" -> buildReport(rows)
             "look" -> buildLook(rows)
             "code" -> buildCode(rows)
-            "protect" -> buildProtect(rows)
+            "protect", "checks" -> buildProtect(rows)
+            "volume" -> buildVolume(rows)
             "connect" -> buildConnect(rows)
             "updates" -> buildUpdates(rows)
             "device" -> buildDevice(rows)
@@ -94,7 +95,7 @@ class ParentActivity : Activity() {
         for (d in Store.sections) {
             val line = ParentMenu.line(this, d.key)
             rows.menuItem(d.title, line.subtitle, warn = line.warn, icon = d.icon, colour = d.colour) {
-                if (d.key == "checks") startActivity(Intent(this, SetupActivity::class.java)) else open(d.key)
+                open(d.key)
             }
         }
     }
@@ -138,7 +139,7 @@ class ParentActivity : Activity() {
         val u = Usage(this)
         if (!Device.isGuardEnabled(this)) {
             rows.note("Toddler Guard is off in Android, so screen time can't be counted or limited. " +
-                "Switch it on from Lock-down checks.").setTextColor(Ui.RED)
+                "Switch it on from Protection and lock-down checks.").setTextColor(Ui.RED)
         }
         rows.header("Daily limit")
         rows.note("Counts time spent inside the apps, not on the toddler home screen.")
@@ -205,18 +206,21 @@ class ParentActivity : Activity() {
             }
         }
 
-        reportRow(listOf("App", "Today", "Yest.", dayName.format(days[2]), "7-day avg"), bold = true)
+        val table = mutableListOf(ReportTable.Row(listOf("App", "Today", "Yest.", dayName.format(days[2]), "7-day avg"), bold = true))
         val appPkgs = pkgs.filter { it != packageName }
             .sortedByDescending { p -> week.sumOf { u.seconds(it, p) } }
         for (pkg in appPkgs) {
-            reportRow(listOf(names[pkg] ?: pkg) + days.map { short(u.seconds(it, pkg)) } +
+            table += ReportTable.Row(listOf(names[pkg] ?: pkg) + days.map { short(u.seconds(it, pkg)) } +
                 short(week.sumOf { u.seconds(it, pkg) } / 7))
         }
-        reportRow(listOf("All apps") + days.map { short(u.appSeconds(it)) } + short(week.sumOf { u.appSeconds(it) } / 7), bold = true)
+        table += ReportTable.Row(listOf("All apps") + days.map { short(u.appSeconds(it)) } + short(week.sumOf { u.appSeconds(it) } / 7),
+            bold = true, shaded = true)
         if (pkgs.contains(packageName)) {
-            reportRow(listOf("Home screen") + days.map { short(u.seconds(it, packageName)) } +
+            table += ReportTable.Row(listOf("Home screen") + days.map { short(u.seconds(it, packageName)) } +
                 short(week.sumOf { u.seconds(it, packageName) } / 7))
         }
+        col.addView(ReportTable.build(this, table), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, dp(8), 0, dp(8)) })
         if (pkgs.isEmpty()) rows.note("Nothing recorded yet. Counting needs Toddler Guard switched on.")
         rows.note("The 7-day average is the total for the last 7 days (including today) divided by 7.")
         rows.button("Clear the usage history") {
@@ -230,23 +234,6 @@ class ParentActivity : Activity() {
     private fun short(secs: Long): String {
         val m = (secs + 30) / 60
         return if (m < 60) "${m}m" else String.format(Locale.UK, "%dh%02d", m / 60, m % 60)
-    }
-
-    private fun reportRow(cells: List<String>, bold: Boolean = false) {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(6), 0, dp(6))
-        }
-        cells.forEachIndexed { i, text ->
-            row.addView(TextView(this).apply {
-                this.text = text
-                textSize = 14f
-                if (bold) typeface = Typeface.DEFAULT_BOLD
-                gravity = if (i == 0) Gravity.START else Gravity.END
-                maxLines = 2
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, if (i == 0) 2.2f else 1f))
-        }
-        col.addView(row)
     }
 
     // ---------- Look and layout ----------
@@ -360,7 +347,11 @@ class ParentActivity : Activity() {
     // ---------- Protection ----------
 
     private fun buildProtect(rows: Rows) {
-        sectionTitle(rows, "Protection and volume")
+        sectionTitle(rows, "Protection and lock-down checks")
+        rows.header("Lock-down checks")
+        rows.note("A green tick means a step is done. If something gets switched off later, it shows a red cross here.")
+        Checklist.addSteps(this, rows, settings) { build() }
+
         rows.header("Toddler Guard")
         rows.switchRow("Use Toddler Guard", settings.guardOn) { on -> settings.guardOn = on; on }
         rows.note("Status: " + GuardService.status(this))
@@ -386,18 +377,46 @@ class ParentActivity : Activity() {
                 "comes down (some phones let it), Toddler Guard closes it straight away."
         )
 
-        rows.header("Volume")
-        rows.choiceRow("Highest media volume", Settings.VOLUME_CAPS, settings.volumeCap.toString()) {
-            settings.volumeCap = it.toInt()
+        rows.header("Screen pinning (optional)")
+        rows.note(
+            "Android's screen pinning locks the toddler screen in place, so even Home and Back do nothing. " +
+                "Opening one of the allowed apps unpins it (Android only lets one app be pinned), and it pins " +
+                "again when your child comes back. Android asks to confirm each time it pins, so this suits " +
+                "a child who mostly uses the home screen itself. To use it, switch on Screen pinning (or App " +
+                "pinning) in Android's security settings, and turn on \"Ask for PIN before unpinning\"."
+        )
+        rows.button("Open security settings") {
+            settings.startParentMode()
+            Device.openSecurity(this)
         }
-        rows.note("If the volume is turned up past this, it's turned straight back down. Needs Toddler Guard.")
-
-        rows.header("Screen pinning")
         rows.switchRow("Pin the toddler screen", settings.pinScreen) { on ->
             settings.pinScreen = on
             on
         }
-        rows.note("Optional extra. See Lock-down checks for how it works.")
+    }
+
+    // ---------- Volume ----------
+
+    private fun buildVolume(rows: Rows) {
+        sectionTitle(rows, "Volume")
+        rows.header("Volume now: ${Volume.percent(this)}%")
+        rows.note("Music, videos and games. You can change this from the Toddler Parent app or the web page too.")
+        rows.button("Louder (up 10%)") { Volume.set(this, settings, Volume.percent(this) + 10); build() }
+        rows.button("Quieter (down 10%)") { Volume.set(this, settings, Volume.percent(this) - 10); build() }
+        rows.button("Mute") { Volume.set(this, settings, 0); build() }
+        rows.choiceRow("Set the volume to", Volume.choices(settings), Volume.nearestChoice(this, settings)) {
+            Volume.set(this, settings, it.toInt())
+            col.post { build() }
+        }
+
+        rows.header("Highest volume")
+        rows.choiceRow("Highest media volume", Settings.VOLUME_CAPS, settings.volumeCap.toString()) {
+            settings.volumeCap = it.toInt()
+            // Bring the volume down straight away if it's now over the cap
+            if (settings.volumeCap > 0 && Volume.percent(this) > settings.volumeCap) Volume.set(this, settings, settings.volumeCap)
+            col.post { build() }
+        }
+        rows.note("If the volume is turned up past this, it's turned straight back down. Needs Toddler Guard.")
     }
 
     // ---------- Connections ----------
@@ -479,23 +498,22 @@ class ParentActivity : Activity() {
                     .setTextColor(Ui.RED)
             }
             for (a in addresses) {
+                val url = "http://$a:${RemoteServer.PORT}"
                 rows.col.addView(TextView(this).apply {
-                    text = "http://$a:${RemoteServer.PORT}"
+                    text = url
                     textSize = 22f
                     typeface = Typeface.DEFAULT_BOLD
                     setTextIsSelectable(true)
                     setPadding(0, dp(4), 0, dp(4))
                 })
-                // QR code of the address: scan it with your phone's camera instead of typing
-                val size = minOf(resources.displayMetrics.widthPixels - dp(64), dp(300))
-                Qr.bitmap(Connect.addressUrl(settings, a), size)?.let { bmp ->
-                    rows.col.addView(android.widget.ImageView(this).apply {
-                        setImageBitmap(bmp)
-                        contentDescription = "QR code for http://$a:${RemoteServer.PORT}"
-                    }, LinearLayout.LayoutParams(size, size).apply { setMargins(0, dp(8), 0, dp(12)) })
+                rows.button("Show the QR code") { showQr(a) }
+                rows.button("Open the web page here") {
+                    settings.startParentMode()
+                    if (!Device.open(this, Intent(Intent.ACTION_VIEW, Uri.parse(url)))) Ui.toast(this, "No web browser found")
                 }
+                rows.button("Share the address") { shareAddress(url) }
             }
-            rows.note("Scan the QR code with the Toddler Parent app (or your phone's camera for the web page), or type the address into your browser exactly as shown (http, not https). While it is on, a quiet notification keeps it running even when your child is in another app.")
+            rows.note("Scan the QR code with the Toddler Parent app or your phone's camera, or type the address into your browser exactly as shown (http, not https). It only works on the same Wi-Fi (or hotspot). While it is on, a quiet notification keeps it running even when your child is in another app.")
             if (settings.isDefaultPin()) rows.note("You're still using the default PIN ${Settings.DEFAULT_PIN}. Change it first, as anyone on the same Wi-Fi could try it.").setTextColor(Ui.RED)
             rows.note("While you're connected, a small phone icon shows at the top of the screen, over your child's apps too.")
             rows.header("No Wi-Fi?")
@@ -521,6 +539,38 @@ class ParentActivity : Activity() {
             }
             rows.button("Refresh the address") { build() }
         }
+    }
+
+    /** A big QR code of the web page address: the Toddler Parent app and a phone's camera can both scan it. */
+    private fun showQr(address: String) {
+        val size = minOf(resources.displayMetrics.widthPixels - dp(48), dp(420))
+        val bmp = Qr.bitmap(Connect.addressUrl(settings, address), size) ?: return Ui.toast(this, "Couldn't make the QR code")
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(16), dp(16), dp(16), dp(8))
+            addView(android.widget.ImageView(this@ParentActivity).apply {
+                setImageBitmap(bmp)
+                contentDescription = "QR code for http://$address:${RemoteServer.PORT}"
+            }, LinearLayout.LayoutParams(size, size))
+            addView(TextView(this@ParentActivity).apply {
+                text = "http://$address:${RemoteServer.PORT}"
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(0, dp(8), 0, 0)
+            })
+        }
+        AlertDialog.Builder(this).setTitle("Scan to connect").setView(box)
+            .setPositiveButton("Close", null).show()
+    }
+
+    /** Sends the address with Android's share menu (messages, email and so on). */
+    private fun shareAddress(url: String) {
+        settings.startParentMode()
+        val text = "Toddler Launcher remote page for ${settings.childName.ifBlank { "the toddler device" }}: $url " +
+            "(open it on the same Wi-Fi, then enter the parent PIN)"
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        if (!Device.open(this, Intent.createChooser(send, "Share the address"))) Ui.toast(this, "Nothing to share with")
     }
 
     // ---------- Recommended apps (GitHub version only, see RecommendedSection.kt) ----------

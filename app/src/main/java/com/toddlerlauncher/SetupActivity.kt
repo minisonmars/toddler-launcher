@@ -28,8 +28,8 @@ class SetupActivity : Activity() {
 
         rows.title("Lock-down checks")
         rows.note(
-            "Work down the list. A green tick means a step is done. You can come back here any time from " +
-                "the parent area. The parent code starts as ${Settings.DEFAULT_PIN}."
+            "Work down the list. A green tick means a step is done. You can see these checks any time in " +
+                "the parent area, under Protection and lock-down checks. The parent code starts as ${Settings.DEFAULT_PIN}."
         )
 
         refreshers += Checklist.addSteps(this, rows, settings) { refresh() }

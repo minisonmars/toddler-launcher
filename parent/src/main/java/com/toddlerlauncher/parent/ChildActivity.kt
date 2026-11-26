@@ -160,6 +160,7 @@ class ChildActivity : Activity() {
                 "look" -> buildLook(s)
                 "code" -> buildCode(s)
                 "protect" -> buildProtect(s)
+                "volume" -> buildVolume(s)
                 "connect" -> buildConnect(s)
                 "remote" -> buildRemote(s)
                 "updates" -> buildUpdates(s)
@@ -233,7 +234,7 @@ class ChildActivity : Activity() {
             val c = checks.getJSONObject(i)
             rows.check(c.optString("title"), c.optBoolean("done"))
         }
-        rows.note("To fix a cross, open Lock-down checks in the parent area on the toddler device: these are Android settings that only someone at that device can change.")
+        rows.note("To fix a cross, open Protection and lock-down checks in the parent area on the toddler device: these are Android settings that only someone at that device can change.")
     }
 
     private fun buildApps(s: JSONObject) {
@@ -274,7 +275,7 @@ class ChildActivity : Activity() {
     }
 
     private fun buildTime(s: JSONObject) {
-        if (!s.optBoolean("guardEnabled", true)) rows.note("Toddler Guard is off in Android, so screen time can't be counted or limited. Switch it on from Lock-down checks on the device.", Ui.RED)
+        if (!s.optBoolean("guardEnabled", true)) rows.note("Toddler Guard is off in Android, so screen time can't be counted or limited. Switch it on from Protection on the device.", Ui.RED)
         schemaSection(s, "time") { h ->
             when (h) {
                 "before:Daily limit" -> rows.note("Counts time spent inside the apps, not on the toddler home screen.")
@@ -297,16 +298,20 @@ class ChildActivity : Activity() {
 
     private fun buildReport(s: JSONObject) {
         val days = s.optJSONArray("reportDays") ?: JSONArray()
-        val dayNames = (0 until days.length()).map { days.optString(it) }
+        val dayNames = (0 until days.length()).map { days.optString(it) }.map { if (it == "Yesterday") "Yest." else it }
         val report = s.optJSONArray("report") ?: JSONArray()
+        val table = mutableListOf(com.toddlerlauncher.ReportTable.Row(listOf("App") + dayNames + "7-day avg", bold = true))
         for (i in 0 until report.length()) {
             val r = report.getJSONObject(i)
             val d = r.optJSONArray("days") ?: JSONArray()
-            val line = dayNames.indices.joinToString("  ·  ") { "${dayNames[it]} ${d.optString(it)}" } + "  ·  7-day avg ${r.optString("avg")}"
-            rows.note(r.optString("label"), if (r.optBoolean("total")) Ui.PURPLE else android.graphics.Color.GRAY, 16f)
-                .apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; setPadding(0, Ui.dp(this@ChildActivity, 8), 0, 0) }
-            rows.note(line)
+            val total = r.optBoolean("total")
+            table += com.toddlerlauncher.ReportTable.Row(listOf(r.optString("label")) + dayNames.indices.map { d.optString(it) } + r.optString("avg"),
+                bold = total, shaded = total)
         }
+        rows.col.addView(com.toddlerlauncher.ReportTable.build(this, table), LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(0, Ui.dp(this@ChildActivity, 8), 0, Ui.dp(this@ChildActivity, 8))
+        })
         rows.note("Time in apps in toddler mode. The average is the last 7 days divided by 7.")
     }
 
@@ -333,6 +338,8 @@ class ChildActivity : Activity() {
     }
 
     private fun buildProtect(s: JSONObject) {
+        rows.header("Lock-down checks")
+        buildChecks(s)
         schemaSection(s, "protect") { h ->
             if (h == "Toddler Guard") {
                 if (s.has("guardStatus")) rows.note("Status: " + s.optString("guardStatus"))
@@ -344,6 +351,23 @@ class ChildActivity : Activity() {
                     "Pause 1 hour" to { act("/api/pause", JSONObject().put("min", 60), "Paused") },
                 )
             }
+        }
+    }
+
+    private fun buildVolume(s: JSONObject) {
+        rows.header("Volume now: ${s.optInt("volume")}%")
+        rows.note("Music, videos and games on the toddler device.")
+        rows.buttons(
+            "Louder" to { act("/api/volume", JSONObject().put("step", 10)) },
+            "Quieter" to { act("/api/volume", JSONObject().put("step", -10)) },
+        )
+        rows.button("Mute") { act("/api/volume", JSONObject().put("percent", 0)) }
+        val choices = pairs(s.optJSONArray("volumeChoices"))
+        if (choices.isNotEmpty()) rows.choiceRow("Set the volume to", choices, s.optString("volumeChoice")) {
+            act("/api/volume", JSONObject().put("percent", it.toInt()))
+        }
+        schemaSection(s, "volume") { h ->
+            if (h == "Highest volume") rows.note("If the volume is turned up past this, it's turned straight back down. Needs Toddler Guard.")
         }
     }
 
@@ -374,12 +398,113 @@ class ChildActivity : Activity() {
 
     private fun buildRemote(s: JSONObject) {
         connection(s)
+        waysToConnect()
+
+        rows.header("Web page")
+        rows.note("Anyone on the same Wi-Fi as the toddler device can open this in a browser and log in with the parent PIN.")
+        val addrs = s.optJSONArray("addresses") ?: JSONArray()
+        if (addrs.length() == 0) rows.note("The toddler device isn't on a network right now.", Ui.ORANGE)
+        for (i in 0 until addrs.length()) {
+            val a = addrs.optString(i)
+            val url = "http://$a:${com.toddlerlauncher.link.Link.PORT}"
+            rows.note(url, size = 20f).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextIsSelectable(true) }
+            rows.buttons(
+                "QR code" to { showQr(url) },
+                "Open" to { openUrl(url) },
+                "Share" to { share(url) },
+            )
+        }
+
         rows.header("Paired phones")
         val names = s.optJSONArray("pairedNames") ?: JSONArray()
         for (i in 0 until names.length()) rows.note(names.optString(i), size = 16f)
         rows.note("Remove other phones from Parent area > Remote access on the device.")
         rows.header("This phone")
         rows.button("Unpair this phone") { unpair() }
+    }
+
+    /** The addresses (Wi-Fi networks) and private Wi-Fi saved for this device: all tried in turn. */
+    private fun waysToConnect() {
+        rows.header("Ways to connect")
+        rows.note("This app tries each of these until one answers, so one saved device works on all your Wi-Fi networks.")
+        val time = java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.UK)
+        for (r in synchronized(child.routes) { child.routes.toList() }.sortedByDescending { it.lastOk }) {
+            val last = if (r.lastOk > 0) "last worked ${time.format(java.util.Date(r.lastOk))}" else "not used yet"
+            rows.item(r.label, "${r.host}:${r.port}  ·  $last. Tap to rename or remove") { editRoute(r) }
+        }
+        if (child.ssid.isNotEmpty()) {
+            rows.item("Private Wi-Fi \"${child.ssid}\"", "Its own Wi-Fi from \"Connect directly\". Tap to remove") {
+                AlertDialog.Builder(this).setTitle("Remove the private Wi-Fi?")
+                    .setMessage("You can add it again by scanning its \"Connect directly\" QR code.")
+                    .setPositiveButton("Remove") { _, _ ->
+                        child.ssid = ""; child.pass = ""; child.sec = ""
+                        Store.save(this, child)
+                        build()
+                    }
+                    .setNegativeButton("Cancel", null).show()
+            }
+        }
+        rows.button("Add another way to connect") { startActivity(android.content.Intent(this, AddActivity::class.java)) }
+        rows.note("On another Wi-Fi, scan the QR code from the toddler device's Remote access: it's added here, with no PIN needed.")
+    }
+
+    private fun editRoute(r: Route) {
+        val field = EditText(this).apply {
+            setText(r.label)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+        }
+        AlertDialog.Builder(this).setTitle("${r.host}:${r.port}")
+            .setMessage("Give it a name, for example Home or Grandma's.")
+            .setView(padded(field))
+            .setPositiveButton("Save") { _, _ ->
+                r.label = field.text.toString().trim().ifEmpty { Route.defaultLabel(r.host) }
+                Store.save(this, child)
+                build()
+            }
+            .setNeutralButton("Remove") { _, _ ->
+                synchronized(child.routes) { child.routes.remove(r) }
+                Store.save(this, child)
+                build()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showQr(url: String) {
+        val size = minOf(resources.displayMetrics.widthPixels - Ui.dp(this, 48), Ui.dp(this, 420))
+        val bmp = com.toddlerlauncher.Qr.bitmap("$url/?id=${child.id}", size) ?: return
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            setPadding(Ui.dp(this@ChildActivity, 16), Ui.dp(this@ChildActivity, 16), Ui.dp(this@ChildActivity, 16), 0)
+            addView(android.widget.ImageView(this@ChildActivity).apply { setImageBitmap(bmp); contentDescription = "QR code for $url" },
+                LinearLayout.LayoutParams(size, size))
+            addView(android.widget.TextView(this@ChildActivity).apply {
+                text = url
+                textSize = 18f
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, Ui.dp(this@ChildActivity, 8), 0, 0)
+            })
+        }
+        AlertDialog.Builder(this).setTitle("Scan with a phone's camera").setView(box).setPositiveButton("Close", null).show()
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (e: Exception) {
+            Ui.toast(this, "No web browser found")
+        }
+    }
+
+    private fun share(url: String) {
+        val text = "Toddler Launcher remote page for ${child.name}: $url (open it on the same Wi-Fi, then enter the parent PIN)"
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(android.content.Intent.EXTRA_TEXT, text)
+        try {
+            startActivity(android.content.Intent.createChooser(send, "Share the address"))
+        } catch (e: Exception) {
+            Ui.toast(this, "Nothing to share with")
+        }
     }
 
     private fun buildUpdates(s: JSONObject) {

@@ -26,7 +26,8 @@
   select, input[type=text], input[type=password], input[type=time] { font-size:16px; padding:8px; border-radius:8px; border:1px solid rgba(128,128,128,.4); background:var(--card); color:var(--text); max-width:55vw; }
   input[type=checkbox] { width:26px; height:26px; accent-color:var(--green); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
-  td, th { padding:6px 4px; text-align:right; border-bottom:1px solid rgba(128,128,128,.15); }
+  td, th { padding:7px 6px; text-align:right; border:1px solid rgba(128,128,128,.45); }
+  th, tr.total td { background:rgba(128,128,128,.12); }
   td:first-child, th:first-child { text-align:left; }
   tr.total td { font-weight:700; }
   #login { max-width:360px; margin:40px auto; }
@@ -42,6 +43,9 @@
   .check img { width:34px; height:34px; }
   h1.sec { display:flex; align-items:center; gap:12px; font-size:22px; margin:8px 0; }
   h1.sec img { width:40px; height:40px; }
+  .addr { font-size:20px; font-weight:700; word-break:break-all; margin:10px 0 4px; }
+  .qr { display:block; width:100%; max-width:320px; margin:8px 0; background:#fff; border-radius:8px; }
+  a.button { display:inline-block; font-size:16px; border-radius:10px; padding:11px 14px; background:var(--green); color:#fff; margin:4px 6px 4px 0; text-decoration:none; }
 </style>
 </head>
 <body>
@@ -212,10 +216,25 @@ function render() {
   app.appendChild(el('button', { 'class': 'secondary', text: 'Back', onclick: function () { location.hash = ''; } }));
   var add = function (x) { if (x.forEach) x.forEach(function (c) { app.appendChild(c); }); else app.appendChild(x); };
   ({
-    checks: function () {
-      add(el('div', { 'class': 'card' }, st.checks.map(function (c) {
-        return el('div', { 'class': 'check' }, [icon(c.done ? 'CHECK' : 'CROSS', c.done ? '34B37A' : 'E13C3C'), el('span', { text: c.title })]);
-      }).concat([note('To fix a cross, open Lock-down checks in the parent area on the toddler device.')])));
+    checks: function () { add(checksCard()); },
+    volume: function () {
+      var sel = el('select');
+      (st.volumeChoices || []).forEach(function (o) {
+        var opt = el('option', { value: o[0], text: o[1] });
+        if (o[0] === st.volumeChoice) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.onchange = function () { act('volume', { percent: parseInt(sel.value, 10) }); };
+      add(el('div', { 'class': 'card' }, [h2('Volume now: ' + st.volume + '%'),
+        note('Music, videos and games on the toddler device.'),
+        el('div', {}, [
+          el('button', { text: 'Louder', onclick: function () { act('volume', { step: 10 }); } }),
+          el('button', { text: 'Quieter', onclick: function () { act('volume', { step: -10 }); } }),
+          el('button', { 'class': 'secondary', text: 'Mute', onclick: function () { act('volume', { percent: 0 }); } })]),
+        el('div', { 'class': 'row' }, [el('label', { text: 'Set the volume to' }), sel])]));
+      add(schemaCards('volume', function (h) {
+        if (h === 'Highest volume') return [note('If the volume is turned up past this, it\'s turned straight back down. Needs Toddler Guard.')];
+      }));
     },
     apps: function () {
       var allowed = [h2('Allowed apps'), note('Tick the apps your child can use.')];
@@ -291,6 +310,7 @@ function render() {
       add(schemaCards('code'));
     },
     protect: function () {
+      add(checksCard());
       add(schemaCards('protect', function (h) {
         if (h !== 'Toddler Guard') return;
         var status = st.guardStatus ? [note('Status: ' + st.guardStatus)] : [];
@@ -321,7 +341,23 @@ function render() {
       add(el('div', { 'class': 'card' }, wifi));
     },
     remote: function () {
-      add(el('div', { 'class': 'card' }, [h2('Connection'), note('This page, on the same Wi-Fi. Addresses: ' + (st.addresses || []).join(', '))]));
+      var conn = [h2('Web page address'), note('Works on the same Wi-Fi (or hotspot) as the toddler device. Log in with the parent PIN.')];
+      (st.addresses || []).forEach(function (a) {
+        var url = 'http://' + a + ':8080';
+        var qr = el('img', { 'class': 'qr', alt: 'QR code for ' + url });
+        qr.style.display = 'none';
+        conn.push(el('div', { 'class': 'addr', text: url }));
+        conn.push(el('div', {}, [
+          el('button', { text: 'Show the QR code', onclick: function () {
+            if (qr.style.display === 'none') { qr.src = '/qr.png?host=' + encodeURIComponent(a); qr.style.display = 'block'; }
+            else qr.style.display = 'none';
+          } }),
+          el('a', { 'class': 'button', href: url, target: '_blank', text: 'Open in the browser' }),
+          el('button', { text: 'Share', onclick: function () { share(url); } })]));
+        conn.push(qr);
+      });
+      if (!(st.addresses || []).length) conn.push(note('The toddler device isn\'t on a network right now.', 'warn'));
+      add(el('div', { 'class': 'card' }, conn));
       add(el('div', { 'class': 'card' }, [h2('Paired phones')].concat((st.pairedNames || []).map(function (n) { return note(n); }))
         .concat([note('The Toddler Parent app finds this device by itself on the same Wi-Fi.')])));
       add(el('div', { 'class': 'card' }, [el('button', { 'class': 'secondary', text: 'Log out', onclick: function () { api('logout').finally(function () { showLogin(''); }); } })]));
@@ -338,6 +374,20 @@ function render() {
         note('Using your normal home screen for a while, changing the home app and uninstalling are done on the device.')]));
     }
   }[key] || function () {})();
+}
+
+function checksCard() {
+  return el('div', { 'class': 'card' }, [h2('Lock-down checks')].concat(st.checks.map(function (c) {
+    return el('div', { 'class': 'check' }, [icon(c.done ? 'CHECK' : 'CROSS', c.done ? '34B37A' : 'E13C3C'), el('span', { text: c.title })]);
+  })).concat([note('To fix a cross, open Protection and lock-down checks in the parent area on the toddler device.')]));
+}
+
+// Send the address with the phone's share menu, or copy it where sharing isn't available
+function share(url) {
+  var text = 'Toddler Launcher remote page (open it on the same Wi-Fi, then enter the parent PIN): ' + url;
+  if (navigator.share) { navigator.share({ title: 'Toddler Launcher remote', text: text }).catch(function () {}); return; }
+  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(url).then(function () { toast('Address copied'); }); return; }
+  window.prompt('Copy this address', url);
 }
 
 function renderMenu(app) {

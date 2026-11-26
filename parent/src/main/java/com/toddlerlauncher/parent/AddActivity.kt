@@ -45,9 +45,9 @@ class AddActivity : Activity() {
             "If nothing shows up after a few seconds, your router may block this: scan the QR code instead.")
         val paired = Store.list(this).map { it.id }.toSet()
         for (f in found) {
-            rows.item(f.name, if (f.id in paired) "Already paired. Tap to pair again" else "Tap to pair", Ui.GREEN) {
+            rows.item(f.name, if (f.id in paired) "Already saved. Tap to add this Wi-Fi to it" else "Tap to pair", Ui.GREEN) {
                 direct = null
-                askPin(f.host, f.port, f.name)
+                pairOrAdd(f.id, f.host, f.port, f.name)
             }
         }
         rows.header("Or")
@@ -91,10 +91,11 @@ class AddActivity : Activity() {
                     Thread {
                         // Find which of its addresses answers over the hotspot
                         var hit: Pair<String, String>? = null
+                        var hitId = uri.getQueryParameter("id") ?: ""
                         for (attempt in 0 until 5) {
                             for (h in hosts) {
                                 val hi = Net.hello(h, port)
-                                if (hi != null) { hit = h to hi.optString("name"); break }
+                                if (hi != null) { hit = h to hi.optString("name"); hitId = hi.optString("id", hitId); break }
                             }
                             if (hit != null) break
                             Thread.sleep(1500)
@@ -104,7 +105,7 @@ class AddActivity : Activity() {
                             val (h, name) = hit ?: return@runOnUiThread message("Couldn't connect",
                                 "Joined the private Wi-Fi but the toddler device didn't answer. Close its QR code, tap Connect directly again and rescan.")
                             direct = Triple(ssid, pass, sec)
-                            askPin(h, port, name)
+                            pairOrAdd(hitId, h, port, name)
                         }
                     }.start()
                 }
@@ -147,7 +148,49 @@ class AddActivity : Activity() {
             runOnUiThread {
                 wait.dismiss()
                 if (hi == null) message("Couldn't reach it", "Nothing answered at $host. Check both devices are on the same Wi-Fi and remote access is on.")
-                else askPin(host, port, hi.optString("name"))
+                else pairOrAdd(hi.optString("id"), host, port, hi.optString("name"))
+            }
+        }.start()
+    }
+
+    /**
+     * A device that's already saved gets this address (or private Wi-Fi) added to it as another way
+     * to connect, with no PIN needed. Only a device that doesn't know this phone any more is paired again.
+     */
+    private fun pairOrAdd(id: String, host: String, port: Int, name: String) {
+        val child = Store.get(this, id) ?: return askPin(host, port, name)
+        val hotspot = direct
+        val wait = progress("Adding this connection to ${child.name}...")
+        Thread {
+            val problem = try {
+                Net.call(this, child, "/api/state", only = host to port)
+                null
+            } catch (e: LinkError) {
+                if (e.notPaired) "notPaired" else e.message
+            } catch (e: Exception) {
+                e.message
+            }
+            runOnUiThread {
+                wait.dismiss()
+                when (problem) {
+                    null -> {
+                        val saved = Store.get(this, id) ?: child
+                        val isNew = saved.remember(host, port, worked = true)
+                        if (hotspot != null) {
+                            saved.ssid = hotspot.first; saved.pass = hotspot.second; saved.sec = hotspot.third
+                        }
+                        Store.save(this, saved)
+                        Ui.toast(this, when {
+                            hotspot != null -> "Saved the private Wi-Fi with ${saved.name}"
+                            isNew -> "Added this Wi-Fi to ${saved.name}. Rename it under Remote access > Ways to connect."
+                            else -> "${saved.name} already has this connection"
+                        })
+                        startActivity(Intent(this, ChildActivity::class.java).putExtra("id", saved.id))
+                        finish()
+                    }
+                    "notPaired" -> askPin(host, port, name)
+                    else -> message("Couldn't connect", problem ?: "")
+                }
             }
         }.start()
     }

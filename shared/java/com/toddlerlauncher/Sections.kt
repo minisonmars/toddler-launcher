@@ -19,19 +19,22 @@ object Sections {
     val PINK = Color.rgb(230, 80, 150)
     val RED = Color.rgb(225, 60, 60)
 
+    // Everyday things at the top; the set-up-once and safety sections towards the bottom
     val ALL = listOf(
-        Def("checks", "Lock-down checks", Icon.CHECKLIST, GREEN),
         Def("apps", "Apps and app time limits", Icon.GRID, BLUE),
-        Def("recommended", "Recommended apps", Icon.STAR, ORANGE),
         Def("time", "Screen time and allowed hours", Icon.CLOCK, PURPLE),
         Def("report", "Usage report", Icon.CHART, TEAL),
+        Def("recommended", "Recommended apps", Icon.STAR, ORANGE),
+        Def("volume", "Volume", Icon.SPEAKER, ORANGE),
         Def("look", "Look and layout", Icon.PALETTE, PINK),
-        Def("code", "Parent code and button", Icon.LOCK, ORANGE),
-        Def("protect", "Protection and volume", Icon.SHIELD, GREEN),
         Def("connect", "Wi-Fi, mobile data and Bluetooth", Icon.WIFI, BLUE),
-        Def("remote", "Remote access", Icon.REMOTE, PURPLE),
         Def("updates", "Updates and backup", Icon.DOWNLOAD, TEAL),
+        Def("code", "Parent code and button", Icon.LOCK, ORANGE),
+        Def("remote", "Remote access", Icon.REMOTE, PURPLE),
+        Def("protect", "Protection and lock-down checks", Icon.SHIELD, GREEN),
         Def("device", "This device", Icon.DEVICE, GREY),
+        // Older launchers still send this one; it's now part of Protection
+        Def("checks", "Lock-down checks", Icon.CHECKLIST, GREEN),
     )
 
     fun get(key: String) = ALL.firstOrNull { it.key == key }

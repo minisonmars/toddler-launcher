@@ -5,7 +5,13 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Parent area reordered: Apps, Screen time and Usage report at the top; Parent code, Remote access and Protection near the bottom
+- Lock-down checks are now part of Protection (renamed "Protection and lock-down checks")
+- New Volume section: see the volume now, turn it up or down, mute it or set it, and set the highest volume. Works from the Toddler Parent app and the web page too
+- The usage report table has lines between every row and column, so it's easier to read (on the device and in the Toddler Parent app and web page)
+- Remote access: each address now has buttons to show its QR code, open the web page in the browser and share the address
+- Toddler Parent app: one saved device can now have several ways to connect (different Wi-Fi networks and its private Wi-Fi). Scanning the QR code on another Wi-Fi adds that Wi-Fi to the saved device without the PIN. Rename or remove them under Remote access > Ways to connect
+- Pairing the same phone again no longer adds another copy to Paired phones, and old copies are tidied away
 
 ## v0.1.31
 

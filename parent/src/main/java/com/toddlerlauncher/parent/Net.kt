@@ -51,6 +51,15 @@ object Net {
         }
     }
 
+    /** A random id for this phone, kept for good, sent when pairing. */
+    fun phoneId(ctx: Context): String {
+        val p = ctx.applicationContext.getSharedPreferences("phone", Context.MODE_PRIVATE)
+        p.getString("id", null)?.let { return it }
+        val id = Link.randomId(8)
+        p.edit().putString("id", id).apply()
+        return id
+    }
+
     /** Checks there's a Toddler Launcher at that address, and returns its id and name. */
     fun hello(host: String, port: Int): JSONObject? = try {
         val (code, o) = post(host, port, "/api/hello", JSONObject(), 3000)
@@ -72,7 +81,8 @@ object Net {
         val childPub = r1.getString("pub")
         val key = Link.sharedKey(kp.private, childPub, myPub, childPub)
         val phone = (Build.MANUFACTURER.replaceFirstChar { it.uppercase() } + " " + Build.MODEL).take(40)
-        val box = Link.seal(key, JSONObject().put("pin", pin).put("phone", phone).toString())
+        // phoneId lets the toddler device replace this phone's old pairing instead of adding another copy
+        val box = Link.seal(key, JSONObject().put("pin", pin).put("phone", phone).put("phoneId", phoneId(ctx)).toString())
         val (c2, r2) = post(host, port, "/api/pair/finish", JSONObject().put("session", r1.getString("session")).put("box", box))
         if (c2 != 200) throw LinkError(r2.optString("error", "Pairing failed ($c2)"))
         val reply = try {
@@ -81,7 +91,12 @@ object Net {
             throw LinkError("Pairing failed: the reply didn't check out. Please try again.")
         }
         val child = Child(reply.getString("id"), reply.optString("name", "Toddler device"), reply.getString("pair"), key, host, port)
-        Store.get(ctx, child.id)?.let { old -> child.ssid = old.ssid; child.pass = old.pass; child.sec = old.sec }
+        // Pairing again keeps the other ways of reaching it
+        Store.get(ctx, child.id)?.let { old ->
+            child.ssid = old.ssid; child.pass = old.pass; child.sec = old.sec
+            child.routes.addAll(old.routes)
+        }
+        child.remember(host, port, worked = true)
         Store.save(ctx, child)
         return child to Link.checkCode(key)
     }
@@ -90,14 +105,17 @@ object Net {
      * Sends a locked request to a paired child and returns the unlocked reply.
      * Tries the address the finder last saw, then the last one that worked.
      */
-    fun call(ctx: Context, child: Child, path: String, body: JSONObject = JSONObject()): JSONObject {
-        val hosts = LinkedHashSet<String>()
-        Finder.found[child.id]?.let { hosts.add(it.host) }
-        if (child.host.isNotEmpty()) hosts.add(child.host)
-        if (Direct.network != null && Direct.ssid == child.ssid) hosts.addAll(Direct.hosts)
-        if (hosts.isEmpty()) throw LinkError("Can't find ${child.name} on this network.")
-        for (h in hosts) {
-            val port = Finder.found[child.id]?.takeIf { it.host == h }?.port ?: child.port
+    fun call(ctx: Context, child: Child, path: String, body: JSONObject = JSONObject(), only: Pair<String, Int>? = null): JSONObject {
+        // Every way we know of reaching it: where the finder saw it, the last address that worked,
+        // then its other saved addresses (newest first), and its private hotspot if we're on it
+        val tries = LinkedHashMap<String, Int>()
+        Finder.found[child.id]?.let { tries[it.host] = it.port }
+        if (Direct.network != null && Direct.ssid == child.ssid) Direct.hosts.forEach { tries.putIfAbsent(it, child.port) }
+        if (child.host.isNotEmpty()) tries.putIfAbsent(child.host, child.port)
+        synchronized(child.routes) { child.routes.toList() }.sortedByDescending { it.lastOk }.forEach { tries.putIfAbsent(it.host, it.port) }
+        if (only != null) { tries.clear(); tries[only.first] = only.second }
+        if (tries.isEmpty()) throw LinkError("Can't find ${child.name} on this network.")
+        for ((h, port) in tries) {
             val started = android.os.SystemClock.elapsedRealtime()
             try {
                 val inner = JSONObject().put("path", path).put("body", body).put("ts", System.currentTimeMillis())
@@ -111,10 +129,22 @@ object Net {
                     else -> "saved"
                 }
                 lastConn[child.id] = ConnInfo(h, port, via, android.os.SystemClock.elapsedRealtime() - started, System.currentTimeMillis())
-                if (h != child.host || port != child.port) {
+                // Remember this address as one of its ways to connect (saved at most once a minute)
+                val existing = child.routes.firstOrNull { it.host == h && it.port == port }
+                val stale = existing == null || System.currentTimeMillis() - existing.lastOk > 60_000L
+                if (h != child.host || port != child.port || stale) {
                     child.host = h
                     child.port = port
-                    Store.save(ctx, child)
+                    // Save onto the stored copy, so names given to other addresses meanwhile aren't lost
+                    val saved = Store.get(ctx, child.id) ?: child
+                    saved.host = h
+                    saved.port = port
+                    saved.remember(h, port, worked = true)
+                    Store.save(ctx, saved)
+                    synchronized(child.routes) {
+                        child.routes.clear()
+                        child.routes.addAll(saved.routes)
+                    }
                 }
                 val inBody = reply.optJSONObject("body") ?: JSONObject()
                 if (reply.optInt("code") != 200) throw LinkError(inBody.optString("error", "Error ${reply.optInt("code")}"))

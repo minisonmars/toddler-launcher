@@ -12,9 +12,6 @@ pattern-protected parent area.
   by default, a yellow ring fills up) and enter the parent code on the built-in number pad (it opens as soon as the right PIN is in).
   The code starts as **0000**.
 - **Parent area**: a menu of sections, each with its own icon and opening its own screen.
-  - **Lock-down checks**: a tick or cross for each setup step (home app, Toddler
-    Guard, background use, updates, own code, apps chosen) with a button to fix
-    any that have been switched off. The menu line turns red if anything needs attention.
   - **Apps and app time limits**: choose and order the allowed apps; a daily limit
     per app (the app turns grey once its time is used up), and "Always allowed" apps
   (Toddler Camera to start with) that keep working when time is up, outside allowed hours and at break time.
@@ -22,32 +19,36 @@ pattern-protected parent area.
     more minutes today", a "5 minutes left" warning, and allowed hours (separate
     weekday and weekend times). Outside them the toddler screen shows "Sleep
     time"; when the daily time is used it shows "Time's up for today".
-  - **Usage report**: minutes per app for today, yesterday and the day before,
+  - **Usage report**: a table (with lines between every row and column) of minutes per app for today, yesterday and the day before,
     plus a 7-day daily average. Only time in toddler mode is counted.
   - **Recommended apps**: other toddler apps made for this launcher (listed in
     `catalog.json` in this repo, so new ones appear without a launcher update).
     Install or update them from their GitHub releases, show them on the toddler
     screen, and open them to set up their own parent settings.
+  - **Volume**: the media volume now, with Louder, Quieter, Mute and "Set the volume to" (also from the
+    Toddler Parent app and the web page), and the highest volume allowed (the cap: turned straight back down if exceeded).
   - **Look and layout**: your child's name at the top in colourful letters (letter spacing, colours, and a bounce, wave, wiggle, spin, grow or jelly wobble when tapped), columns, rows (swapped automatically when sideways), icon
     size, app names, wallpaper (colours or your photo), screen direction, hiding
     the status and navigation bars, keeping the screen on.
-  - **Parent code and button**: PIN or pattern, recovery word, gear corner and
-    hold time, the temporary update button on the toddler screen.
-  - **Protection and volume**: Toddler Guard on or off, pause protection, block the
-    pull-down, media volume cap, optional screen pinning.
   - **Wi-Fi, mobile data and Bluetooth**: shows whether each is on and opens
     Android's own switches (apps can't switch them directly since Android 10).
+  - **Updates and backup**: shows the installed version, each newer version with
+    its changelog, and older versions (behind a "Show older versions" button) in a drop-down; save or
+    restore settings to a file.
+  - **Parent code and button**: PIN or pattern, recovery word, gear corner and
+    hold time, the temporary update button on the toddler screen.
   - **Remote access** (off by default): a small web page on the local network.
     On your phone's browser open `http://<device address>:8080` (shown in the
     parent area) and log in with the parent PIN to change settings, allowed apps
     and limits, give extra time, start "Break time", see the usage report and
     add Wi-Fi networks (as Android network suggestions). Same Wi-Fi or your
-    phone's hotspot only. The parent area also shows a QR code of the address to scan, and while remote access is on a QR button on the toddler screen (next to the update button) shows it too. It runs in a foreground service (quiet notification)
+    phone's hotspot only. Each address has buttons to show its QR code, open it in the browser and share it (Android share menu), and while remote access is on a QR button on the toddler screen (next to the update button) shows it too. It runs in a foreground service (quiet notification)
     so it keeps working while the child is in another app. A small phone icon
     shows at the top of the screen, over other apps too, while connected. 5 wrong PINs lock it for 5 minutes.
-  - **Updates and backup**: shows the installed version, each newer version with
-    its changelog, and older versions (behind a "Show older versions" button) in a drop-down; save or
-    restore settings to a file.
+  - **Protection and lock-down checks**: a tick or cross for each setup step (home app, Toddler
+    Guard, background use, updates, own code, apps chosen) with a button to fix
+    any that have been switched off (the menu line turns red if anything needs attention); Toddler Guard on or off, pause protection, block the
+    pull-down, optional screen pinning.
   - **This device**: use your normal home screen for a while (15 minutes, 1 hour,
     or until you open Toddler Launcher from its icon), change the home app,
     uninstall. As the home app, Toddler Launcher starts by itself after a restart.
@@ -59,8 +60,12 @@ pattern-protected parent area.
   old messages refused. It shows the same parent area menu, icons and headings as the device (so does the web page). No Wi-Fi?
   The toddler device's "Connect directly" makes a private local-only hotspot and
   shows a QR code; the parent app scans it and joins (the phone keeps its mobile
-  data). Paired phones are listed, and can be removed, in Parent area > Remote access.
-- **Setup checklist** (shown on first start, and from the parent area): ticks
+  data). One saved device can have several ways to connect (addresses on different Wi-Fi
+  networks, and its private Wi-Fi), tried in turn; scanning the QR code on another Wi-Fi adds it to
+  the saved device with no PIN. Each can be renamed (Home, Grandma's) or removed under Remote access >
+  Ways to connect. Pairing the same phone again replaces its old pairing on the toddler device instead
+  of adding a copy. Paired phones are listed, and can be removed, in Parent area > Remote access.
+- **Setup checklist** (shown on first start; the same checks are in Protection and lock-down checks): ticks
   each lock-down step as it's done.
 
 ## How the lock-down works (and its limits)
@@ -160,7 +165,8 @@ app/src/main/java/com/toddlerlauncher/
   ParentActivity.kt     parent area menu and its sections
   AppPickerActivity.kt  choose and order the allowed apps
   SetupActivity.kt      lock-down checks screen (also shown on first start)
-  Checklist.kt          lock-down checks shared by setup and the parent area
+  Checklist.kt          lock-down checks shared by setup and the Protection section
+  Volume.kt             media volume as a percentage, kept under the cap
   Usage.kt              time per app per day, and the screen-time rules
   GuardService.kt       Toddler Guard: blocks other apps, counts and limits screen time, volume cap
   Gate.kt               PIN and pattern prompts, changing them
@@ -187,7 +193,9 @@ app/src/play/java/...     Play version only:
 app/src/main/assets/remote.html   the remote parent web page
 shared/java/.../link/Link.kt      pairing and message locking, used by both apps
 shared/java/.../RoundIcon.kt      icons drawn in code (both apps)
-shared/java/.../Sections.kt       the parent area sections, icons and colours (both apps)
+shared/java/.../Sections.kt       the parent area sections, their order, icons and colours (both apps)
+shared/java/.../ReportTable.kt    the usage report table with grid lines (both apps)
+shared/java/.../Qr.kt             QR code pictures (both apps)
 parent/                 the Toddler Parent app (HomeActivity, AddActivity, ChildActivity,
                         ScanActivity, Finder (mDNS), Direct (joining the hotspot), Net, Store)
   Icons.kt              hold-to-open button, page dots, child's name
