@@ -155,7 +155,7 @@ kept in step with this file, and the in-app updater shows them.
 
 Builds run only in GitHub Actions (`.github/workflows/build.yml`) on every push to
 `main`: JDK 17, Gradle 8.7, Android Gradle Plugin 8.5.2, Kotlin 1.9.24,
-compileSdk/targetSdk 34, minSdk 26 (Android 8.0). Each successful build publishes
+compileSdk/targetSdk 35 (needed for updates without the confirm screen), minSdk 26 (Android 8.0). Each successful build publishes
 a GitHub Release `v0.1.<run number>` with both APKs (launcher and parent app), plus the Play AAB once its key is set up. A fixed debug keystore
 (`app/debug.keystore`) signs every build so new versions install over old ones.
 Builds are release builds (not debuggable), which Google Play Protect treats less
@@ -205,6 +205,7 @@ parent/                 the Toddler Parent app (HomeActivity, AddActivity, Child
   Icons.kt              hold-to-open button, page dots, child's name
   ParentMenu.kt         the line under each parent area section (also sent to the parent app and web page)
   Ui.kt                 colours and row builders for settings screens
+  Insets.kt             pads screens around the system bars (target API 35, needed for silent updates)
 catalog.json            the recommended apps: name, package, GitHub repo, description
 app/src/main/res/       launcher icon, accessibility service config, strings
 ```

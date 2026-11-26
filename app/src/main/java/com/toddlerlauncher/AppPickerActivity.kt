@@ -29,7 +29,7 @@ class AppPickerActivity : Activity() {
             setPadding(dp(16), dp(24), dp(16), dp(32))
         }
         scroll = ScrollView(this).apply { addView(list) }
-        setContentView(scroll)
+        setContentView(scroll.fitSystemBars())
         all = Apps.launchable(this)
         build()
     }

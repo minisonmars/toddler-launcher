@@ -41,7 +41,7 @@ class ScanActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             setPadding(Ui.dp(this@ScanActivity, 24), Ui.dp(this@ScanActivity, 48), Ui.dp(this@ScanActivity, 24), 0)
         }, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
-        setContentView(root)
+        setContentView(root.fitSystemBars())
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera()
         else requestPermissions(arrayOf(Manifest.permission.CAMERA), 1)
     }

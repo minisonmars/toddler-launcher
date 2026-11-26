@@ -5,12 +5,14 @@ plugins {
 
 android {
     namespace = "com.toddlerlauncher"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.toddlerlauncher"
         minSdk = 26 // Android 8.0 and newer
-        targetSdk = 34
+        // Android only allows updates without the confirm screen for apps that target a
+        // recent API level (34+ on Android 16, rising each year), so keep this current
+        targetSdk = 35
         // Goes up with every GitHub build so each APK counts as an update
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = System.getenv("APP_VERSION") ?: "0.1.0"

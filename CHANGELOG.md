@@ -5,7 +5,8 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Updates should now really install without Android's "Update?" screen (Android 12 and later): the app now targets Android 15 (API 35), which Android requires for this. This update still asks once; after that the launcher just restarts on the new version. Same for the Toddler Parent app
+- Screens are kept clear of the status bar, navigation bar and keyboard on Android 15 and later
 
 ## v0.1.35
 

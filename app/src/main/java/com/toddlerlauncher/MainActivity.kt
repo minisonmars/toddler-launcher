@@ -220,7 +220,7 @@ class MainActivity : Activity() {
             rightMargin = dp(80)
         })
 
-        setContentView(root)
+        setContentView(root.fitSystemBars())
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

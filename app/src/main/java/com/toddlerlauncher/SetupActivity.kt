@@ -54,7 +54,7 @@ class SetupActivity : Activity() {
         rows.header("Finished?")
         rows.button("Go to the toddler screen") { finish() }
 
-        setContentView(ScrollView(this).apply { addView(col) })
+        setContentView(ScrollView(this).apply { addView(col) }.fitSystemBars())
     }
 
     override fun onResume() {

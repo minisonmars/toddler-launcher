@@ -35,7 +35,7 @@ object Ui {
         activity.setContentView(ScrollView(activity).apply {
             isFillViewport = true
             addView(col)
-        })
+        }.fitSystemBars())
         return col
     }
 }

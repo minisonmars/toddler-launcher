@@ -8,12 +8,14 @@ plugins {
 // changes its settings. Built and released together with the launcher.
 android {
     namespace = "com.toddlerlauncher.parent"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.toddlerlauncher.parent"
         minSdk = 29 // Android 10: needed to join the launcher's private hotspot
-        targetSdk = 34
+        // Android only allows updates without the confirm screen for apps that target a
+        // recent API level (34+ on Android 16, rising each year), so keep this current
+        targetSdk = 35
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = System.getenv("APP_VERSION") ?: "0.1.0"
     }

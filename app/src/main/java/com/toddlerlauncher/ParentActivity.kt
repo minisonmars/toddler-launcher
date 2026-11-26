@@ -37,7 +37,7 @@ class ParentActivity : Activity() {
             setPadding(dp(16), dp(24), dp(16), dp(32))
         }
         scroll = ScrollView(this).apply { addView(col) }
-        setContentView(scroll)
+        setContentView(scroll.fitSystemBars())
     }
 
     override fun onResume() {
