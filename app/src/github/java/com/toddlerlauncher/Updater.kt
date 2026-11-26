@@ -167,6 +167,10 @@ object Updater {
         if (Build.VERSION.SDK_INT >= 31) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
+        // Tells Android up front which app this updates. Without it Android can't tell the
+        // session is an update and always shows its confirm screen.
+        val pkg = ctx.packageManager.getPackageArchiveInfo(apk.path, 0)?.packageName
+        params.setAppPackageName(pkg ?: ctx.packageName)
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
             apk.inputStream().use { input ->

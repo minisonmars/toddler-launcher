@@ -5,7 +5,7 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Fix: updates still showed Android's "Update?" screen every time. This update asks once more; after that they should go straight in (Android 12 and later)
 
 ## v0.1.34
 

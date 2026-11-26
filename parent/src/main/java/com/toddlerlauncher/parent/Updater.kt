@@ -121,6 +121,9 @@ object Updater {
         val installer = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        // Tells Android up front that this is an update to this app. Without it Android can't
+        // tell the session is an update and always shows its confirm screen.
+        params.setAppPackageName(ctx.packageName)
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
             apk.inputStream().use { input ->
