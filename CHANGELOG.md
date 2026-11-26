@@ -5,6 +5,10 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
+- (nothing yet)
+
+## v0.1.33
+
 - Parent area reordered: Apps, Screen time and Usage report at the top; Parent code, Remote access and Protection near the bottom
 - Lock-down checks are now part of Protection (renamed "Protection and lock-down checks")
 - New Volume section: see the volume now, turn it up or down, mute it or set it, and set the highest volume. Works from the Toddler Parent app and the web page too
