@@ -5,7 +5,7 @@ Each build uses the "Next" section as its release notes on GitHub, then renames 
 
 ## Next
 
-- (nothing yet)
+- Updates now install without Android's extra "Update?" screen (Android 12 and later). The first update after this one still asks once; after that the launcher just restarts on the new version. Same for the Toddler Parent app and for updates to apps the launcher installed
 
 ## v0.1.33
 

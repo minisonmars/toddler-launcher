@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Installing its own updates from GitHub -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Lets the app update itself without Android's extra confirm screen (Android 12+),
+         once it installed the previous version itself -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application

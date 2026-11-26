@@ -112,6 +112,11 @@ object Updater {
         }
     }
 
+    /**
+     * Gives the APK to Android's installer. On Android 12 and later, once this app installed
+     * the previous version itself, the update goes straight in with no confirm screen;
+     * otherwise Android shows its own "Update?" screen (see InstallReceiver).
+     */
     private fun install(ctx: Context, apk: File) {
         val installer = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
@@ -284,7 +289,7 @@ object Updater {
         Thread {
             try {
                 download(r.apkUrl, file) { p -> activity.runOnUiThread { status.text = "Downloading ${r.version}... $p%" } }
-                activity.runOnUiThread { status.text = "Installing... confirm on the screen that appears" }
+                activity.runOnUiThread { status.text = "Installing... If Android asks, tap Update. The app closes when the update is in; open it again." }
                 install(activity, file)
                 activity.runOnUiThread { status.postDelayed({ if (dialog.isShowing) dialog.dismiss() }, 4000) }
             } catch (e: Exception) {

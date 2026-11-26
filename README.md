@@ -108,7 +108,11 @@ Storage > Clear data.
 3. Open Toddler Launcher and follow the setup checklist.
 
 Later updates: Parent area > App updates (or, for now, the download button on
-the toddler screen). Android won't install an older version over a newer one,
+the toddler screen). Builds are release (non-debuggable) builds signed with the
+same fixed key. On Android 12 and later, once the launcher installed the previous
+version itself, updates go straight in without Android's confirm screen (the first
+self-update still shows it once). The Toddler Parent app updates the same way.
+Android won't install an older version over a newer one,
 so going back means: back up settings, download the older APK, uninstall,
 install it, restore settings.
 

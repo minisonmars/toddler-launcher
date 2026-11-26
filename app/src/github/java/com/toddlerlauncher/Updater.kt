@@ -156,7 +156,11 @@ object Updater {
         }
     }
 
-    /** Gives the APK to Android's installer. Android shows its own "Update?" screen. */
+    /**
+     * Gives the APK to Android's installer. On Android 12 and later, an update to the launcher
+     * (or to an app it installed) goes straight in with no confirm screen once the launcher
+     * installed the previous version itself; otherwise Android shows its own screen (see InstallReceiver).
+     */
     fun install(ctx: Context, apk: File, label: String = "") {
         val installer = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
@@ -388,7 +392,11 @@ object Updater {
                 download(r.apkUrl, file) { percent ->
                     activity.runOnUiThread { status.text = "Downloading ${r.version}... $percent%" }
                 }
-                activity.runOnUiThread { status.text = "Installing... confirm on the screen that appears" }
+                activity.runOnUiThread {
+                    status.text = if (label.isEmpty())
+                        "Installing... If Android asks, tap Update. The launcher closes and comes back when the update is in."
+                    else "Installing... If Android asks, tap Install (or Update)."
+                }
                 install(activity, file, label)
                 activity.runOnUiThread { status.postDelayed({ if (dialog.isShowing) dialog.dismiss() }, 4000) }
             } catch (e: Exception) {
