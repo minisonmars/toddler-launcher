@@ -127,7 +127,12 @@ The Play AAB is signed with an upload key that is never in this public repo: the
 writes `app/upload.keystore` from the `PLAY_UPLOAD_KEYSTORE` repository secret (the key file
 as base64) and uses `PLAY_KEY_PASSWORD` (it skips the AAB until both are set). Google
 re-signs it with its own key (Play App Signing). Each release then has a
-`ToddlerLauncher-Play-v….aab` to upload in Play Console. Privacy policy:
+`ToddlerLauncher-Play-v….aab` to upload in Play Console.
+
+Every release also has `ToddlerLauncher-Play-v….apk`: the Play version as an installable APK
+for trying it out without Play, signed with the fixed key. It's a separate app, so it never
+replaces the GitHub version, and the GitHub updater ignores it. Its Play update check only
+works when installed from Play. Privacy policy:
 https://apps.minisonmars.co.uk/privacy#toddler-launcher
 
 ## Changelog

@@ -57,8 +57,9 @@ object Updater {
                 for (j in 0 until assets.length()) {
                     val a = assets.getJSONObject(j)
                     val name = a.getString("name")
-                    // Releases also carry the Toddler Parent app (for the parent's phone): skip it
-                    if (name.endsWith(".apk") && !name.startsWith("ToddlerParent")) {
+                    // Releases also carry the Toddler Parent app (for the parent's phone) and the
+                    // Play version's test APK (a different app): skip both
+                    if (name.endsWith(".apk") && !name.startsWith("ToddlerParent") && !name.contains("-Play")) {
                         out.add(
                             Release(
                                 r.getString("tag_name").removePrefix("v"),

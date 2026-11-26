@@ -50,7 +50,9 @@ android {
             dimension = "store"
             // Can never change once the app is on Play
             applicationId = "uk.co.minisonmars.toddlerlauncher"
-            signingConfig = signingConfigs.getByName("upload")
+            // The AAB for Play uses the upload key. The Play test APK on GitHub (PLAY_TEST_APK=1)
+            // uses the fixed key instead, so it can be built and installed without the Play secrets.
+            signingConfig = signingConfigs.getByName(if (System.getenv("PLAY_TEST_APK") == "1") "debug" else "upload")
         }
     }
 

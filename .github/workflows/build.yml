@@ -27,8 +27,7 @@ jobs:
           gradle-version: 8.7
 
       - name: Build release APKs (launcher GitHub version and parent app)
-        # Also compiles the Play version, so mistakes in it show up even before its key is set up
-        run: gradle :app:assembleGithubRelease :parent:assembleRelease :app:compilePlayReleaseKotlin --no-daemon
+        run: gradle :app:assembleGithubRelease :parent:assembleRelease --no-daemon
 
       # The Google Play version (AAB), signed with the upload key. The key is never in the
       # (public) repo: it comes from the PLAY_UPLOAD_KEYSTORE secret (the key file as base64 text)
@@ -46,12 +45,21 @@ jobs:
             cp app/build/outputs/bundle/playRelease/app-play-release.aab "ToddlerLauncher-Play-v${APP_VERSION}.aab"
           fi
 
+      # The Play version as an APK too, so it can be tried out without Play. It's a separate app
+      # (uk.co.minisonmars.toddlerlauncher), so it never replaces the GitHub version.
+      - name: Build Google Play version test APK
+        env:
+          PLAY_TEST_APK: "1"
+        run: |
+          gradle :app:assemblePlayRelease --no-daemon
+          cp app/build/outputs/apk/play/release/app-play-release.apk "ToddlerLauncher-Play-v${APP_VERSION}.apk"
+
       - uses: actions/upload-artifact@v4
         with:
           name: toddler-launcher-apk
           path: |
             app/build/outputs/apk/github/release/app-github-release.apk
-            ToddlerLauncher-Play-*.aab
+            ToddlerLauncher-Play-*
             parent/build/outputs/apk/release/parent-release.apk
 
       - name: Publish release
@@ -68,6 +76,8 @@ jobs:
             --title "Toddler Launcher v${APP_VERSION}" \
             --notes-file notes.md \
             --target "$GITHUB_SHA"
+          # Uploaded last, so older versions' updaters (which take the first launcher APK) never pick it
+          gh release upload "v${APP_VERSION}" "ToddlerLauncher-Play-v${APP_VERSION}.apk"
 
       - name: Update the changelog
         env:
