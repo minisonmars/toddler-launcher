@@ -59,7 +59,7 @@ object Updater {
                     val name = a.getString("name")
                     // Releases also carry the Toddler Parent app (for the parent's phone) and the
                     // Play version's test APK (a different app): skip both
-                    if (name.endsWith(".apk") && !name.startsWith("ToddlerParent") && !name.contains("-Play")) {
+                    if (name.endsWith(".apk") && !name.startsWith("ToddlerParent") && !name.contains("Play")) {
                         out.add(
                             Release(
                                 r.getString("tag_name").removePrefix("v"),

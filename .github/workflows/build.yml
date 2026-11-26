@@ -42,7 +42,7 @@ jobs:
           else
             echo "$PLAY_UPLOAD_KEYSTORE" | tr -d ' \r\n' | base64 -d > app/upload.keystore
             gradle :app:bundlePlayRelease --no-daemon
-            cp app/build/outputs/bundle/playRelease/app-play-release.aab "ToddlerLauncher-Play-v${APP_VERSION}.aab"
+            cp app/build/outputs/bundle/playRelease/app-play-release.aab "ToddlerLauncherPlay-v${APP_VERSION}.aab"
           fi
 
       # The Play version as an APK too, so it can be tried out without Play. It's a separate app
@@ -52,14 +52,14 @@ jobs:
           PLAY_TEST_APK: "1"
         run: |
           gradle :app:assemblePlayRelease --no-daemon
-          cp app/build/outputs/apk/play/release/app-play-release.apk "ToddlerLauncher-Play-v${APP_VERSION}.apk"
+          cp app/build/outputs/apk/play/release/app-play-release.apk "ToddlerLauncherPlay-v${APP_VERSION}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: toddler-launcher-apk
           path: |
             app/build/outputs/apk/github/release/app-github-release.apk
-            ToddlerLauncher-Play-*
+            ToddlerLauncherPlay-*
             parent/build/outputs/apk/release/parent-release.apk
 
       - name: Publish release
@@ -72,12 +72,15 @@ jobs:
           python3 .github/scripts/changelog.py notes > notes.md
           # The Play AAB is attached too (when built), for uploading to Play Console by hand
           gh release create "v${APP_VERSION}" "ToddlerLauncher-v${APP_VERSION}.apk" "ToddlerParent-v${APP_VERSION}.apk" \
-            $(ls ToddlerLauncher-Play-*.aab 2>/dev/null) \
+            $(ls ToddlerLauncherPlay-*.aab 2>/dev/null) \
             --title "Toddler Launcher v${APP_VERSION}" \
             --notes-file notes.md \
             --target "$GITHUB_SHA"
-          # Uploaded last, so older versions' updaters (which take the first launcher APK) never pick it
-          gh release upload "v${APP_VERSION}" "ToddlerLauncher-Play-v${APP_VERSION}.apk"
+          # Named "ToddlerLauncherPlay-" so GitHub lists it after "ToddlerLauncher-v…" (assets are listed
+          # by name): older versions' updaters take the first launcher APK, so they never pick it
+          gh release upload "v${APP_VERSION}" "ToddlerLauncherPlay-v${APP_VERSION}.apk"
+          # v0.1.31's Play APK was listed first, so older updaters could pick it: remove it
+          gh release delete-asset v0.1.31 "ToddlerLauncher-Play-v0.1.31.apk" -y 2>/dev/null || true
 
       - name: Update the changelog
         env:
