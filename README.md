@@ -33,7 +33,8 @@ pattern-protected parent area.
   - **Wi-Fi, mobile data and Bluetooth**: shows whether each is on and opens
     Android's own switches (apps can't switch them directly since Android 10).
   - **Updates and backup**: shows the installed version, each newer version with
-    its changelog, and older versions (behind a "Show older versions" button) in a drop-down; save or
+    its changelog and its own Install button, and older versions (behind a "Show older versions" button),
+    each with its notes and a "Go back to version X" button; save or
     restore settings to a file.
   - **Parent code and button**: PIN or pattern, recovery word, gear corner and
     hold time, the temporary update button on the toddler screen.

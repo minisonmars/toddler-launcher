@@ -192,6 +192,12 @@ object Updater {
         }
         fun info(r: Release) = String.format(Locale.UK, "%s  ·  %.1f MB", r.date, r.sizeBytes / 1_048_576.0)
         fun notes(r: Release) = r.notes.ifBlank { "No notes for this version." }
+        // Every version gets its own button under its notes, so any version can be picked
+        fun versionButton(label: String, onClick: () -> Unit) = Button(activity).apply {
+            text = label
+            isAllCaps = false
+            setOnClickListener { dialog.dismiss(); onClick() }
+        }
 
         val newer = list.filter { compare(it.version, current) > 0 }
         if (newer.isEmpty()) {
@@ -203,14 +209,17 @@ object Updater {
                     .apply { setPadding(0, dp(12), 0, 0) })
                 col.addView(text(info(r), 13f, colour = Ui.GREY))
                 col.addView(text(notes(r), 15f))
+                col.addView(versionButton("Install version ${r.version}") { start(activity, r) })
             }
-            col.addView(button("Install version ${newer.first().version}") { dialog.dismiss(); start(activity, newer.first()) })
         }
 
         val installedRelease = list.firstOrNull { it.version == current }
         col.addView(text("Installed: version $current", 18f, bold = true, colour = Ui.GREEN)
             .apply { if (newer.isNotEmpty()) setPadding(0, dp(22), 0, dp(4)) })
         if (installedRelease != null) col.addView(text(notes(installedRelease), 14f, colour = Ui.GREY))
+        if (installedRelease != null) {
+            col.addView(button("Reinstall version $current") { dialog.dismiss(); start(activity, installedRelease) })
+        }
 
         val older = list.filter { compare(it.version, current) < 0 }
         if (older.isNotEmpty()) {
@@ -226,24 +235,12 @@ object Updater {
             col.addView(showOlder)
             col.addView(olderBox)
             olderBox.addView(text("Older versions", 18f, bold = true).apply { setPadding(0, dp(22), 0, dp(4)) })
-            val spinner = Spinner(activity)
-            val adapter = ArrayAdapter(activity, android.R.layout.simple_spinner_item, older.map { "${it.version}  (${it.date})" })
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinner.adapter = adapter
-            olderBox.addView(spinner)
-            val olderNotes = text(notes(older.first()), 14f, colour = Ui.GREY)
-            olderBox.addView(olderNotes)
-            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { olderNotes.text = notes(older[pos]) }
-                override fun onNothingSelected(p: AdapterView<*>?) {}
+            for (r in older) {
+                olderBox.addView(text("Version ${r.version}", 17f, bold = true).apply { setPadding(0, dp(12), 0, 0) })
+                olderBox.addView(text(info(r), 13f, colour = Ui.GREY))
+                olderBox.addView(text(notes(r), 14f, colour = Ui.GREY))
+                olderBox.addView(versionButton("Go back to version ${r.version}") { explainOlder(activity, r) })
             }
-            olderBox.addView(button("Go back to this version") {
-                dialog.dismiss()
-                explainOlder(activity, older[spinner.selectedItemPosition.coerceAtLeast(0)])
-            })
-        }
-        if (installedRelease != null) {
-            col.addView(button("Reinstall version $current") { dialog.dismiss(); start(activity, installedRelease) })
         }
         dialog = AlertDialog.Builder(activity).setTitle("App versions")
             .setView(ScrollView(activity).apply { addView(col) })
